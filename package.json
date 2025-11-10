@@ -1,0 +1,27 @@
+{
+  "name": "storage-webapp-frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@fontsource/roboto": "^5.2.8",
+    "@vitejs/plugin-basic-ssl": "^2.1.0",
+    "barcode-detector": "^3.0.7",
+    "vite-plugin-vuetify": "^2.1.2",
+    "vue": "^3.5.21",
+    "vue-qrcode-reader": "^5.7.3",
+    "vuedraggable": "^4.1.0",
+    "vuetify": "^3.10.3"
+  },
+  "devDependencies": {
+    "@mdi/font": "^7.4.47",
+    "@vitejs/plugin-vue": "^6.0.1",
+    "unplugin-fonts": "^1.4.0",
+    "vite": "^7.1.7"
+  }
+}
