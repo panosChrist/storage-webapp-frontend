@@ -1,6 +1,10 @@
 <script>
 import HelloWorld from "./components/HelloWorld.vue";
 import {QrcodeStream} from 'vue-qrcode-reader';
+import axios from 'axios';
+import {ref} from 'vue';
+import { debounce } from 'lodash';
+
 
 export default {
   components: {
@@ -11,49 +15,116 @@ export default {
     return {
       show: true,
       showCamera: false,
-      items: [
-        {"name": "BBQ", "number": 3, "checked": false, "key": 1},
-        {"name": "Mustard", "number": 2, "checked": false, "key": 2},
-        {"name": "Honey", "number": 1, "checked": false, "key": 3},
-        {"name": "Ketchup", "number": 2, "checked": false, "key": 4},
-        {"name": "Mayonnaise", "number": 1, "checked": false, "key": 5},
-        {"name": "Olive Oil", "number": 4, "checked": false, "key": 6},
-        {"name": "Vinegar", "number": 2, "checked": false, "key": 7},
-        {"name": "Soy Sauce", "number": 3, "checked": false, "key": 8},
-        {"name": "Hot Sauce", "number": 1, "checked": false, "key": 9},
-        {"name": "Salt", "number": 5, "checked": false, "key": 10},
-        {"name": "Pepper", "number": 4, "checked": false, "key": 11},
-        {"name": "Garlic Powder", "number": 2, "checked": false, "key": 12},
-        {"name": "Paprika", "number": 1, "checked": false, "key": 13},
-        {"name": "Cumin", "number": 2, "checked": false, "key": 14},
-        {"name": "Oregano", "number": 1, "checked": false, "key": 15},
-        {"name": "Basil", "number": 2, "checked": false, "key": 16},
-        {"name": "Thyme", "number": 1, "checked": false, "key": 17},
-        {"name": "Cinnamon", "number": 3, "checked": false, "key": 18},
-        {"name": "Vanilla Extract", "number": 1, "checked": false, "key": 19},
-        {"name": "Brown Sugar", "number": 2, "checked": false, "key": 20}
-      ],
+      items: [],
       foodItemToAdd: {"name": "", "number": 0, "checked": false, "key": crypto.randomUUID()},
       foodItemsDone: [],
       tab: "storage",
-      storageList: [
-        {"name": "Ketchup", "number": 2, "checked": false, "key": 4},
-        {"name": "Mayonnaise", "number": 1, "checked": false, "key": 5},
-        {"name": "Olive Oil", "number": 4, "checked": false, "key": 6},
-        {"name": "Vinegar", "number": 2, "checked": false, "key": 7},
-        {"name": "Soy Sauce", "number": 3, "checked": false, "key": 8},
-        {"name": "Hot Sauce", "number": 1, "checked": false, "key": 9}
-      ]
+      storageList: [],
+      barcodeFound: false,
+      barcodeScanned: "",
+      loading: false
     }
   },
   methods: {
-    onDetect(detectedCodes) {
-      console.log(detectedCodes);
+    getAllItems() {
+      axios.get('/api/item/')
+          .then((response) => {
+            console.log("Got all the Data");
+            this.storageList = response.data;
+          })
+          .catch((error) => {
+            console.log(error);
+          })
+    },
+    updateQuantity(itemId, newValue) {
+      console.log(itemId);
 
+      console.log(newValue)
+      const item = this.storageList.find(i => i.id === itemId);
+
+      // Ensure we compare numbers to numbers
+      const numericValue = Number(newValue);
+
+      if (item && !isNaN(numericValue) && numericValue !== Number(item.quantity)) {
+        this.debouncedSave(itemId, numericValue);
+      }
+    },
+    async syncWithBackend(itemId, value) {
+      try {
+        const response = await axios.put(`/api/item/${itemId}/${value}`);
+        console.log('Saved:', response.data);
+        //this.getAllItems();
+      } catch (error) {
+        console.error('Error saving:', error);
+      }
+    },
+    onDetect(detectedCodes, isActive) {
       if (detectedCodes.length > 0) {
         const barcode = detectedCodes[0].rawValue;
-        this.items.push({name: barcode, number: 1, checked: false});
-        this.showCamera = false;
+        this.loading = true;
+        this.barcodeFound = true;
+        this.barcodeScanned = barcode;
+
+        axios.get('/api/openfoodfacts/test/' + barcode)
+            .then((response) => {
+              const updatedItem = response.data;
+
+              const index = this.storageList.findIndex(i => i.id === updatedItem.id);
+
+              if (index !== -1) {
+                this.storageList[index] = updatedItem;
+              } else {
+
+                this.storageList.unshift(updatedItem);
+              }
+
+              this.loading = false;
+              this.barcodeFound = false;
+              this.barcodeScanned = "";
+              isActive.value = false;
+            })
+            .catch((error) => {
+              this.loading = false;
+              this.barcodeFound = false;
+              this.barcodeScanned = "";
+              isActive.value = false;
+              console.error("Scanning error:", error);
+            });
+      }
+    },
+    onDelete(detectedCodes, isActive) {
+      if (detectedCodes.length > 0) {
+        const barcode = detectedCodes[0].rawValue;
+        this.loading = false;
+        this.barcodeFound = false;
+        isActive.value = false;
+        this.barcodeScanned = barcode;
+
+        axios.get('/api/item/reduce/' + barcode)
+            .then((response) => {
+              const updatedItem = response.data;
+
+              if (updatedItem) {
+                // Find the item in your local list
+                const index = this.storageList.findIndex(i => i.barcode === barcode);
+
+                if (index !== -1) {
+                  // Update only this specific item in the array
+                  this.storageList[index].quantity = updatedItem.quantity;
+                }
+              }
+
+              this.loading = false;
+              this.barcodeFound = false;
+              isActive.value = false;
+            })
+            .catch((error) => {
+              this.loading = false;
+              this.barcodeFound = false;
+              this.barcodeScanned = "";
+              isActive.value = false;
+              console.error("Delete error:", error);
+            });
       }
     },
     addNewItem(item) {
@@ -96,14 +167,23 @@ export default {
     }
   },
   mounted() {
+    console.log("Got the Data on the mount")
+    this.getAllItems();
   },
-  computed: {}
+  beforeUnmount() {
+    this.debouncedSave.cancel();
+  },
+  created() {
+    this.debouncedSave = debounce((item, value) => {
+      this.syncWithBackend(item, value);
+    }, 500);
+  }
 }
 </script>
 
 <template>
   <v-app>
-    <v-app-bar>
+    <v-app-bar app>
       <v-app-bar-title>Storage Solution</v-app-bar-title>
     </v-app-bar>
     <v-main>
@@ -179,17 +259,94 @@ export default {
           </v-container>
         </v-tabs-window-item>
         <v-tabs-window-item key="storage" value="storage">
+          <div class="d-flex justify-center" style="padding: 16px; gap: 8px">
+            <v-dialog>
+              <template v-slot:activator="{ props: activatorProps }">
+                <v-btn v-bind="activatorProps" style=" width: 50%" prepend-icon="mdi-barcode" @click="showCamera = !showCamera">Hinzufügen</v-btn>
+              </template>
+              <template v-slot:default="{ isActive }">
+                <v-card :disabled="loading" :loading="loading">
 
-          {{storageList}}
-          <v-container>
-            <v-list lines="one">
-              <v-list-item v-for="item in storageList" :key="item.key" :title="item.name">
-                <template v-slot:append>
-                  <v-number-input control-variant="stacked" v-model="item.number" density="compact" variant="plain" center-affix></v-number-input>
-                </template>
-                <v-divider></v-divider>
-              </v-list-item>
-            </v-list>
+                  <template v-slot:loader="{isActive}">
+                    <v-progress-linear
+                        :active="isActive"
+                        color="deep-purple"
+                        height="4"
+                        indeterminate
+                    ></v-progress-linear>
+                  </template>
+
+                  <qrcode-stream
+                      v-if="showCamera"
+                      @detect="(codes) => onDetect(codes, isActive)"
+                      :formats="['qr_code', 'code_128', 'ean_8', 'ean_13', 'upc_e', 'upc_a']">
+                  </qrcode-stream>
+
+                  <v-card-title>Barcode</v-card-title>
+                  <v-card-subtitle v-if="!barcodeFound">Barcode wird gesucht. Bitte warten</v-card-subtitle>
+                  <v-card-text v-else>Barcode erkannt. Nummer : {{barcodeScanned}}. Wird der Lagerliste hinzugefügt.
+                    Bitte warten</v-card-text>
+                </v-card>
+
+              </template>
+            </v-dialog>
+
+            <v-dialog>
+              <template v-slot:activator="{ props: activatorProps }">
+                <v-btn v-bind="activatorProps"  style=" width: 50%" prepend-icon="mdi-barcode" @click="showCamera = !showCamera">Löschen</v-btn>
+              </template>
+              <template v-slot:default="{ isActive }">
+                <v-card :disabled="loading" :loading="loading">
+
+                  <template v-slot:loader="{isActive}">
+                    <v-progress-linear
+                        :active="isActive"
+                        color="deep-purple"
+                        height="4"
+                        indeterminate
+                    ></v-progress-linear>
+                  </template>
+
+                  <qrcode-stream
+                      v-if="showCamera"
+                      @detect="(codes) => onDelete(codes, isActive)"
+                      :formats="['qr_code', 'code_128', 'ean_8', 'ean_13', 'upc_e', 'upc_a']">
+                  </qrcode-stream>
+
+                  <v-card-title>Barcode</v-card-title>
+                  <v-card-subtitle v-if="!barcodeFound">Barcode wird gesucht. Bitte warten</v-card-subtitle>
+                  <v-card-text v-else>Barcode erkannt. Nummer : {{barcodeScanned}}. Wird von der Lagerliste verringert/auf 0 gesetzt.
+                    Bitte warten</v-card-text>
+                </v-card>
+
+              </template>
+            </v-dialog>
+          </div>
+
+
+          <v-container fluid style="height: calc(100dvh - 220px); overflow: auto; padding-bottom: 48px">
+            <v-row dense>
+              <v-col cols="6" v-for="item in storageList" :key="item.id">
+                <v-card height="300" class="d-flex flex-column">
+                  <v-card-title class="text-start" >
+                    {{item.brand}}
+                  </v-card-title>
+                  <v-spacer></v-spacer>
+                  <v-card-text class="text-start">
+                    {{item.name}}
+                  </v-card-text>
+
+                  <v-card-subtitle class="text-start">
+                    <v-icon icon="mdi-barcode"></v-icon>  {{item.barcode}}
+                  </v-card-subtitle>
+
+                  <v-card-actions style="margin-top: 24px">
+                    <v-number-input controlVariant="split" @update:model-value="updateQuantity(item.id, $event)" :min=0 density="compact" hide-details v-model="item.quantity"></v-number-input>
+                  </v-card-actions>
+                </v-card>
+              </v-col>
+            </v-row>
+
           </v-container>
 
         </v-tabs-window-item>
@@ -197,7 +354,7 @@ export default {
 
 
     </v-main>
-    <v-footer class="d-flex flex-column" style="max-height: 40px; height: 40px">Christakis</v-footer>
+    <v-footer app class="d-flex flex-column" style="max-height: 40px; height: 40px">Christakis</v-footer>
   </v-app>
 </template>
 
