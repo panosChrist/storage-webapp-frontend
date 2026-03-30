@@ -4,16 +4,18 @@ import { QrcodeStream } from 'vue-qrcode-reader';
 import axios from 'axios';
 import { debounce } from 'lodash';
 import ItemCard from './ItemCard.vue';
+import {itemService} from "../javascript/api.js";
 
 export default {
   name: 'StorageComponent',
-  props:['storage-list'],
   components: {
     QrcodeStream,
     ItemCard
   },
   data() {
     return {
+      storageList: [],
+
     };
   },
   methods: {
@@ -38,8 +40,13 @@ export default {
         console.error('Error saving:', error);
       }
     },
-  },
 
+
+  },
+  async mounted() {
+      console.log('Loading storage data');
+      this.storageList = await itemService.getAllItems();
+  },
   beforeUnmount() {
     this.debouncedSave.cancel();
   },

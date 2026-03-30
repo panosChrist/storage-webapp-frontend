@@ -9,11 +9,16 @@ import * as directives from 'vuetify/directives'
 import 'unfonts.css'
 import draggable from 'vuedraggable'
 import VConsole from 'vconsole';
-if (import.meta.env.MODE === 'development') {
-    new VConsole()
-}
-// Components
 import App from '../App.vue'
+import router from "./router.js";
+
+
+
+/*if (import.meta.env.MODE === 'development') {
+    new VConsole()
+}*/
+// Components
+
 
 const vuetify = createVuetify({
     components: {
@@ -23,4 +28,7 @@ const vuetify = createVuetify({
 })
 
 
-createApp(App).use(vuetify).mount('#app')
+createApp(App)
+    .use(router)
+    .use(vuetify)
+    .mount('#app')

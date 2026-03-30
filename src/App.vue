@@ -1,7 +1,6 @@
 <script>
 import StorageListComponent from "./components/StorageListComponent.vue";
 import axios from "axios";
-import {QrcodeStream} from "vue-qrcode-reader";
 import {itemService} from "./javascript/api.js";
 import BarcodeScannerDialogComponent from "./components/BarcodeScannerDialogComponent.vue";
 
@@ -13,14 +12,15 @@ export default {
   },
   data() {
     return {
-      storageList: [],
       showCamera: false,
       fabOpen: false,
       barcodeFound: false,
       barcodeScanned: '',
       loading: false,
       cameraDialogOnAddOpen: false,
-      cameraDialogOnDelete: false
+      cameraDialogOnDelete: false,
+      drawer: false,
+      locationList: []
     }
   },
   methods: {
@@ -62,6 +62,7 @@ export default {
   async mounted() {
     console.log('Loading storage data');
     this.storageList = await itemService.getAllItems();
+    this.locationList = await itemService.getAllLocations();
   },
 }
 </script>
@@ -71,7 +72,7 @@ export default {
     <v-app-bar app>
 
       <template v-slot:prepend>
-        <v-app-bar-nav-icon></v-app-bar-nav-icon>
+        <v-app-bar-nav-icon @click.stop="drawer =!drawer"></v-app-bar-nav-icon>
       </template>
 
       <template v-slot:append>
@@ -80,9 +81,25 @@ export default {
 
       <v-app-bar-title>Storage Solution</v-app-bar-title>
     </v-app-bar>
+
+    <v-navigation-drawer
+        v-model="drawer"
+        temporary>
+      <v-list-item
+          :to="{ name: 'home' }"
+          @click="drawer = false"
+          prepend-icon="mdi-home"
+          title="Home">
+      </v-list-item>
+
+      <v-list v-for="location in locationList">{{location.name}}</v-list>
+      <v-divider></v-divider>
+      <v-list>Settings</v-list>
+      <v-list>Help</v-list>
+    </v-navigation-drawer>
     <v-main>
 
-      <StorageListComponent :storage-list="storageList"></StorageListComponent>
+      <router-view></router-view>
 
     </v-main>
     <v-fab

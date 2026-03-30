@@ -12,6 +12,9 @@ export default {
     updateQuantity(itemId, newValue) {
       // Just emit to the parent - don't process here
       this.$emit('update-quantity', itemId, newValue);
+    },
+    openDetails() {
+      this.$router.push({ name: 'item-detail', params: { id: this.item.id } });
     }
   }
 }
@@ -41,6 +44,7 @@ export default {
               icon="mdi-information-outline"
               class="flex-shrink-0 ml-1"
               size="small"
+              @click="openDetails"
           ></v-btn>
         </div>
 
