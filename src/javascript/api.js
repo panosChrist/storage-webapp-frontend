@@ -1,9 +1,25 @@
 import axios from "axios";
+import {getAccessToken} from "./authService.js";
+
+const apiClient = axios.create();
+
+apiClient.interceptors.request.use(
+    async (config) => {
+        const token = await getAccessToken();
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+    },
+    (error) => {
+        return Promise.reject(error);
+    }
+);
 
 export const itemService = {
     async getAllItems() {
         try {
-            const response = await axios.get('/api/item/all');
+            const response = await apiClient.get('/api/item/all');
             console.log("Got all the Data");
             return response.data;
         } catch (error) {
@@ -14,7 +30,7 @@ export const itemService = {
 
     async getAllLocations() {
         try {
-            const response = await axios.get('/api/location/');
+            const response = await apiClient.get('/api/location/');
             console.log("Got all the Location data");
             return response.data;
         } catch (error) {
@@ -23,7 +39,7 @@ export const itemService = {
     },
     async getItemDetails(itemId) {
         try {
-            const response = await axios.get(`/api/item/${itemId}`);
+            const response = await apiClient.get(`/api/item/${itemId}`);
             return response.data;
         } catch (error) {
             console.error('Error fetching item details:', error);

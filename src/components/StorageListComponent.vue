@@ -34,7 +34,7 @@ export default {
     },
     async syncWithBackend(itemId, value) {
       try {
-        const response = await axios.put(`/api/item/${itemId}/${value}`);
+        const response = await apiClient.put(`/api/item/${itemId}/${value}`);
         console.log('Saved:', response.data);
       } catch (error) {
         console.error('Error saving:', error);
