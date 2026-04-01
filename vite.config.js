@@ -34,13 +34,6 @@ export default defineConfig({
               ],
           },
       }),
-      basicSsl({
-          /** name of certification */
-          name: 'test',
-          /** custom trust domains */
-          domains: ['*.custom.com'],
-          /** custom certification directory */
-          certDir: '/Users/.../.devServer/cert',
-      }),
+      basicSsl(),
   ],
 })

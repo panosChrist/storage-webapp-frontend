@@ -36,16 +36,22 @@ const router = createRouter({
     routes,
 });
 
-router.beforeEach(async (to, from, next) => {
+router.beforeEach(async (to, from) => {
+    // Skip authentication entirely if disabled via environment variable
+    if (import.meta.env.VITE_DISABLE_AUTH === 'true') {
+        return true;
+    }
+
     if (to.meta.requiresAuth) {
         const user = await getUser();
         if (user && !user.expired) {
-            next(); // User is authenticated, proceed
+            return true; // User is authenticated, proceed
         } else {
             login(); // User is not authenticated, redirect to login
+            return false; // Abort the current Vue Router navigation while the browser redirects
         }
     } else {
-        next(); // Route does not require auth
+        return true; // Route does not require auth
     }
 });
 

@@ -3,6 +3,7 @@ import StorageListComponent from "./components/StorageListComponent.vue";
 import axios from "axios";
 import {itemService} from "./javascript/api.js";
 import BarcodeScannerDialogComponent from "./components/BarcodeScannerDialogComponent.vue";
+import { mdiHome, mdiClose, mdiPlus, mdiBarcodeScan, mdiDelete } from '@mdi/js';
 
 //TODO add comments, logs, decouple everything
 export default {
@@ -12,6 +13,13 @@ export default {
   },
   data() {
     return {
+      icons: {
+        mdiHome,
+        mdiClose,
+        mdiPlus,
+        mdiBarcodeScan,
+        mdiDelete
+      },
       showCamera: false,
       fabOpen: false,
       barcodeFound: false,
@@ -20,7 +28,8 @@ export default {
       cameraDialogOnAddOpen: false,
       cameraDialogOnDelete: false,
       drawer: false,
-      locationList: []
+      locationList: [],
+      streamController: null
     }
   },
   methods: {
@@ -57,12 +66,30 @@ export default {
       } finally {
         this.cameraDialogOnDelete = false;
       }
+    },
+    async startItemStream() {
+      console.log("Starting real-time storage stream")
+
+      this.streamController = await itemService.streamAllItemsAxios(
+          (newData) => {
+            // Vue's reactivity will automatically update the ItemCards
+            // when this array is replaced with the fresh backend data.
+            this.storageList = newData;
+          },
+          (error) => {
+            console.error("Stream failed:", error);
+            // Optional: Add logic here to reconnect after a few seconds
+          }
+      );
     }
   },
   async mounted() {
-    console.log('Loading storage data');
-    this.storageList = await itemService.getAllItems();
-    this.locationList = await itemService.getAllLocations();
+    await this.startItemStream();
+    try {
+      this.locationList = await itemService.getAllLocations();
+    } catch (error) {
+      console.error('Failed to load storage data:', error.message);
+    }
   },
 }
 </script>
@@ -88,7 +115,7 @@ export default {
       <v-list-item
           :to="{ name: 'home' }"
           @click="drawer = false"
-          prepend-icon="mdi-home"
+          :prepend-icon="icons.mdiHome"
           title="Home">
       </v-list-item>
 
@@ -110,7 +137,7 @@ export default {
         icon
         style="margin-bottom: 40px;"
     >
-      <v-icon>{{ fabOpen ? 'mdi-close' : 'mdi-plus' }}</v-icon>
+      <v-icon :icon="fabOpen ? icons.mdiClose : icons.mdiPlus"></v-icon>
       <v-speed-dial
           v-model="fabOpen"
           location="top center"
@@ -118,11 +145,11 @@ export default {
           activator="parent"
       >
         <v-btn key="1" color="success" icon @click="cameraDialogOnAddOpen = true; showCamera = true;">
-          <v-icon>mdi-barcode-scan</v-icon>
+          <v-icon :icon="icons.mdiBarcodeScan"></v-icon>
         </v-btn>
 
         <v-btn key="2" color="error" icon @click="cameraDialogOnDelete = true; showCamera = true;">
-          <v-icon>mdi-delete</v-icon>
+          <v-icon :icon="icons.mdiDelete"></v-icon>
         </v-btn>
 
       </v-speed-dial>

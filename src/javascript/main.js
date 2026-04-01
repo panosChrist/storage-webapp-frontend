@@ -1,6 +1,6 @@
 import { createApp } from 'vue'
 import '../style.css'
-import '@mdi/font/css/materialdesignicons.css' // Ensure you are using css-loader
+// import '@mdi/font/css/materialdesignicons.css' // Ensure you are using css-loader
 // Vuetify
 import 'vuetify/styles'
 import { createVuetify } from 'vuetify'
@@ -11,16 +11,24 @@ import draggable from 'vuedraggable'
 import VConsole from 'vconsole';
 import App from '../App.vue'
 import router from "./router.js";
+import { aliases, mdi } from 'vuetify/iconsets/mdi-svg'
 
 
 
-/*if (import.meta.env.MODE === 'development') {
+if (import.meta.env.MODE === 'development') {
     new VConsole()
-}*/
+}
 // Components
 
 
 const vuetify = createVuetify({
+    icons: {
+      defaultSet: 'mdi',
+      aliases,
+      sets: {
+          mdi
+      }
+    },
     components: {
         draggable,
     },

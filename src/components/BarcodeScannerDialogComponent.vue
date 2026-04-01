@@ -88,7 +88,7 @@ export default {
 
       <v-card-title>{{ title }}</v-card-title>
       <v-card-subtitle v-if="!barcodeFound">{{ searchingText }}</v-card-subtitle>
-      <v-card-text v-else>{{ foundText }} Nummer: {{ barcodeScanned }}</v-card-text>
+      <v-card-text v-else>{{ foundText }} Nummmer: {{ barcodeScanned }}</v-card-text>
     </v-card>
   </v-dialog>
 </template>

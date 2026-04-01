@@ -1,11 +1,19 @@
 <script>
 import { useRoute } from 'vue-router';
 import {itemService} from '../javascript/api';
+import {mdiBarcode,mdiAlertCircle, mdiCheckCircle, mdiLeaf, mdiNutrition} from "@mdi/js";
 
 export default {
   name: "ItemDetailComponent",
   data() {
     return {
+      icons: {
+        mdiBarcode,
+        mdiAlertCircle,
+        mdiCheckCircle,
+        mdiLeaf,
+        mdiNutrition
+      },
       item: null,
       loading: true,
       error: null
@@ -47,16 +55,16 @@ export default {
 
       <v-card-title class="text-wrap text-start">{{ item.brand }} - {{ item.productName }}</v-card-title>
       <v-card-subtitle class="text-start" style="margin-bottom: 8px">
-        <v-icon icon="mdi-barcode"  style="margin-right: 8px"></v-icon> {{ item.barcode }}
+        <v-icon :icon="icons.mdiBarcode"  style="margin-right: 8px"></v-icon> {{ item.barcode }}
       </v-card-subtitle>
       <v-chip label class="text-start mx-4 mb-4 w-100" style="max-width: calc(100% - 32px);">
 
-        <v-icon :icon="item.quantity === 0 ? 'mdi-alert-circle' : 'mdi-check-circle'"  style="margin-right: 8px"></v-icon>
+        <v-icon :icon="item.quantity === 0 ? 'icons.mdiAlertCircle' : 'icons.mdiCheckCircle'"  style="margin-right: 8px"></v-icon>
         Currently in stock: {{item.quantity}}</v-chip>
     </v-card>
 
     <v-card flat style="margin-bottom: 32px;">
-      <v-card-title class="text-start"><v-icon icon="mdi-leaf"></v-icon> Ingredients</v-card-title>
+      <v-card-title class="text-start"><v-icon :icon="icons.mdiLeaf"></v-icon> Ingredients</v-card-title>
       <div v-for="ingredients in item.ingredientsList">
         <v-card-text class="text-start" v-if="ingredients.language === 'German'">
           {{ingredients.ingredients}}
@@ -66,7 +74,7 @@ export default {
 
     <v-card flat style="margin-bottom: 32px;">
       <div class="d-flex justify-space-between align-center">
-        <v-card-title class="text-start"><v-icon icon="mdi-nutrition" style="margin-bottom: 8px"></v-icon> Nutrition Facts</v-card-title>
+        <v-card-title class="text-start"><v-icon :icon="icons.mdiNutrition" style="margin-bottom: 8px"></v-icon> Nutrition Facts</v-card-title>
         <v-card-subtitle class="text-start text-uppercase">per 100G</v-card-subtitle>
       </div>
 

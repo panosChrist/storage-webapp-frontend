@@ -15,7 +15,7 @@ export default {
   data() {
     return {
       storageList: [],
-
+      streamController: null
     };
   },
   methods: {
@@ -33,22 +33,34 @@ export default {
       }
     },
     async syncWithBackend(itemId, value) {
-      try {
-        const response = await apiClient.put(`/api/item/${itemId}/${value}`);
-        console.log('Saved:', response.data);
-      } catch (error) {
-        console.error('Error saving:', error);
-      }
+      console.log('Put quantity called with itemId:', itemId, 'and value:', value)
+      await itemService.putItemQuantity(itemId, value);
     },
+    async startItemStream() {
+      console.log("Starting real-time storage stream")
 
-
+      this.streamController = await itemService.streamAllItemsAxios(
+          (newData) => {
+            // Vue's reactivity will automatically update the ItemCards
+            // when this array is replaced with the fresh backend data.
+            this.storageList = newData;
+          },
+          (error) => {
+            console.error("Stream failed:", error);
+            // Optional: Add logic here to reconnect after a few seconds
+          }
+      );
+    }
   },
   async mounted() {
-      console.log('Loading storage data');
-      this.storageList = await itemService.getAllItems();
+      await this.startItemStream();
   },
   beforeUnmount() {
     this.debouncedSave.cancel();
+
+    if (this.streamController) {
+      this.streamController.abort();
+    }
   },
   created() {
     this.debouncedSave = debounce((item, value) => {

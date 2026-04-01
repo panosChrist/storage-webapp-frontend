@@ -1,10 +1,20 @@
 <script>
+import {mdiInformationOutline, mdiBarcode} from "@mdi/js";
+
 export default {
   name: "ItemCard",
   props: {
     item: {
       type: Object,
       required: true
+    }
+  },
+  data() {
+    return {
+      icons: {
+        mdiInformationOutline,
+        mdiBarcode
+      }
     }
   },
   emits: ['update-quantity'],
@@ -41,7 +51,7 @@ export default {
           <v-btn
               density="compact"
               variant="text"
-              icon="mdi-information-outline"
+              :icon="icons.mdiInformationOutline"
               class="flex-shrink-0 ml-1"
               size="small"
               @click="openDetails"
@@ -49,7 +59,7 @@ export default {
         </div>
 
         <v-card-subtitle class="text-start pa-0 mt-1">
-          <v-icon icon="mdi-barcode" size="small"></v-icon> {{item.barcode}}
+          <v-icon :icon="icons.mdiBarcode" size="small"></v-icon> {{item.barcode}}
         </v-card-subtitle>
 
         <div class="d-flex flex-wrap align-center justify-space-between mt-3 ga-2">
