@@ -3,7 +3,7 @@ import StorageListComponent from "./components/StorageListComponent.vue";
 import axios from "axios";
 import {itemService} from "./javascript/api.js";
 import BarcodeScannerDialogComponent from "./components/BarcodeScannerDialogComponent.vue";
-import { mdiHome, mdiClose, mdiPlus, mdiBarcodeScan, mdiDelete } from '@mdi/js';
+import { mdiHome, mdiClose, mdiPlus, mdiBarcodeScan, mdiDelete, mdiMapMarker, mdiCheckBold } from '@mdi/js';
 
 //TODO add comments, logs, decouple everything
 export default {
@@ -18,7 +18,9 @@ export default {
         mdiClose,
         mdiPlus,
         mdiBarcodeScan,
-        mdiDelete
+        mdiDelete,
+        mdiMapMarker,
+        mdiCheckBold
       },
       showCamera: false,
       fabOpen: false,
@@ -27,64 +29,53 @@ export default {
       loading: false,
       cameraDialogOnAddOpen: false,
       cameraDialogOnDelete: false,
+      cameraDialogOnCheck: false,
       drawer: false,
       locationList: [],
-      streamController: null
+      streamController: null,
+      itemExists: false,
+      showCheckResult: false,
     }
   },
   methods: {
     async onBarcodeAdd(barcode) {
       try {
-        const response = await axios.get('/api/item/', { params: { barcode } });
-        const updatedItem = response.data;
-        const index = this.storageList.findIndex(i => i.id === updatedItem.id);
-
-        if (index !== -1) {
-          this.storageList[index] = updatedItem;
-        } else {
-          this.storageList.unshift(updatedItem);
-        }
+        await itemService.addItemByBarcode(barcode);
+        // No need to manually update a list here!
+        // The backend will broadcast the updated inventory via SSE,
+        // and StorageListComponent will automatically re-render.
       } catch (error) {
         console.error('Scanning error:', error);
       } finally {
         this.cameraDialogOnAddOpen = false;
       }
     },
+
     async onBarcodeDelete(barcode) {
       try {
-        const response = await axios.get('/api/item/reduce/' + barcode);
-        const updatedItem = response.data;
+        // Use the authenticated service instead of raw axios
+        await itemService.reduceItemByBarcode(barcode);
 
-        if (updatedItem) {
-          const index = this.storageList.findIndex(i => i.barcode === barcode);
-          if (index !== -1) {
-            this.storageList[index].quantity = updatedItem.quantity;
-          }
-        }
       } catch (error) {
         console.error('Delete error:', error);
       } finally {
         this.cameraDialogOnDelete = false;
       }
     },
-    async startItemStream() {
-      console.log("Starting real-time storage stream")
 
-      this.streamController = await itemService.streamAllItemsAxios(
-          (newData) => {
-            // Vue's reactivity will automatically update the ItemCards
-            // when this array is replaced with the fresh backend data.
-            this.storageList = newData;
-          },
-          (error) => {
-            console.error("Stream failed:", error);
-            // Optional: Add logic here to reconnect after a few seconds
-          }
-      );
+    async onBarcodeCheck(barcode) {
+      try {
+        this.itemExists = await itemService.checkIfItemExists(barcode);
+        this.showCheckResult = true;
+
+      } catch (error) {
+        console.error('Check error:', error);
+      } finally {
+        this.cameraDialogOnCheck = false;
+      }
     }
   },
   async mounted() {
-    await this.startItemStream();
     try {
       this.locationList = await itemService.getAllLocations();
     } catch (error) {
@@ -119,10 +110,10 @@ export default {
           title="Home">
       </v-list-item>
 
-      <v-list v-for="location in locationList">{{location.name}}</v-list>
-      <v-divider></v-divider>
-      <v-list>Settings</v-list>
-      <v-list>Help</v-list>
+      <v-list-item v-for="location in locationList">{{location.name}}</v-list-item>
+      <v-list-item :to="{ name: 'locations' }" @click="drawer = false" :prepend-icon="icons.mdiMapMarker " title="Location"></v-list-item>
+      <v-list-item>Settings</v-list-item>
+      <v-list-item>Help</v-list-item>
     </v-navigation-drawer>
     <v-main>
 
@@ -152,21 +143,48 @@ export default {
           <v-icon :icon="icons.mdiDelete"></v-icon>
         </v-btn>
 
+        <v-btn key="3" color="blue" icon @click="cameraDialogOnCheck = true; showCamera = true;">
+          <v-icon :icon="icons.mdiCheckBold"></v-icon>
+        </v-btn>
+
       </v-speed-dial>
     </v-fab>
+
+    <v-dialog v-model="showCheckResult" max-width="400">
+      <v-card>
+        <v-card-title class="text-h6">Prüfergebnis</v-card-title>
+        <v-card-text>
+          <div v-if="itemExists" class="d-flex align-center text-success text-subtitle-1">
+            <v-icon :icon="icons.mdiCheckBold" color="success" class="mr-2"></v-icon>
+            Artikel ist in der Datenbank vorhanden.
+          </div>
+          <div v-else class="d-flex align-center text-error text-subtitle-1">
+            <v-icon :icon="icons.mdiClose" color="error" class="mr-2"></v-icon>
+            Artikel wurde nicht gefunden.
+          </div>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn color="primary" variant="text" @click="showCheckResult = false">Schließen</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
 
     <BarcodeScannerDialogComponent
         v-model="cameraDialogOnAddOpen"
         title="Artikel hinzufügen"
-        searching-text="Barcode wird gesucht. Bitte warten"
-        found-text="Barcode erkannt. Wird der Lagerliste hinzugefügt."
         @detect="onBarcodeAdd"
+    />
+
+    <BarcodeScannerDialogComponent
+        v-model="cameraDialogOnCheck"
+        title="Artikel ob verfügbar"
+        @detect="onBarcodeCheck"
     />
 
     <BarcodeScannerDialogComponent
         v-model="cameraDialogOnDelete"
         title="Artikel entfernen"
-        searching-text="Barcode wird gesucht. Bitte warten"
         found-text="Barcode erkannt. Wird von der Lagerliste verringert."
         @detect="onBarcodeDelete"
     />

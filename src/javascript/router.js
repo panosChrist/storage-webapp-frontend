@@ -2,6 +2,7 @@ import {createRouter, createWebHashHistory, createWebHistory} from "vue-router";
 import ItemDetailView from "../components/ItemDetailComponent.vue";
 import StorageListComponent from "../components/StorageListComponent.vue";
 import {getUser, login, handleLoginCallback} from "./authService.js";
+import LocationsComponent from "../components/LocationsComponent.vue";
 
 const routes = [
     {
@@ -14,6 +15,11 @@ const routes = [
         name: 'item-detail',
         meta: { requiresAuth: true },
         component: ItemDetailView },
+    {
+        path: '/locations',
+        name: 'locations',
+        meta: { requiresAuth: true },
+        component: LocationsComponent },
     {
         path: '/login/callback',
         meta: { requiresAuth: false },
@@ -39,6 +45,9 @@ const router = createRouter({
 router.beforeEach(async (to, from) => {
     // Skip authentication entirely if disabled via environment variable
     if (import.meta.env.VITE_DISABLE_AUTH === 'true') {
+
+        console.log("Skipping authentication check because VITE_DISABLE_AUTH is set to true");
+
         return true;
     }
 

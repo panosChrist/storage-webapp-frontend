@@ -46,7 +46,7 @@ export default {
 
 
   <v-card-subtitle class="text-start">
-    <v-icon icon="mdi-barcode"></v-icon>  {{item.barcode}}
+    <v-icon icon="mdi-barcode"></v-icon>  {{foodItem.barcode}}
   </v-card-subtitle>
 
 

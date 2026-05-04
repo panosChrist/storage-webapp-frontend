@@ -16,10 +16,10 @@ import { aliases, mdi } from 'vuetify/iconsets/mdi-svg'
 
 
 if (import.meta.env.MODE === 'development') {
-    new VConsole()
+
 }
 // Components
-
+//new VConsole()
 
 const vuetify = createVuetify({
     icons: {
