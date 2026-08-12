@@ -1,3 +1,4 @@
+// src/javascript/authService.js
 import { UserManager } from 'oidc-client-ts';
 
 const settings = {
@@ -11,8 +12,37 @@ const settings = {
 
 const userManager = new UserManager(settings);
 
-export const login = () => {
+/**
+ * Standard OIDC redirect login
+ */
+export const login = (extraParams = {}) => {
+    if (Object.keys(extraParams).length > 0) {
+        return userManager.signinRedirect({ extraQueryParams: extraParams });
+    }
     return userManager.signinRedirect();
+};
+
+/**
+ * Trigger Standard Username & Password Login Flow
+ */
+export const loginWithPassword = () => {
+    const passwordFlow = import.meta.env.VITE_AUTHENTIK_PASSWORD_FLOW;
+    if (passwordFlow) {
+        return userManager.signinRedirect({
+            extraQueryParams: { flow: passwordFlow }
+        });
+    }
+    return userManager.signinRedirect();
+};
+
+/**
+ * Trigger Passkey / WebAuthn Passwordless Login Flow
+ */
+export const loginWithPasskey = (customFlow) => {
+    const passkeyFlow = customFlow || import.meta.env.VITE_AUTHENTIK_PASSKEY_FLOW || 'default-passwordless-flow';
+    return userManager.signinRedirect({
+        extraQueryParams: { flow: passkeyFlow }
+    });
 };
 
 export const logout = () => {
@@ -30,4 +60,13 @@ export const getUser = () => {
 export const getAccessToken = async () => {
     const user = await userManager.getUser();
     return user?.access_token;
+};
+
+/**
+ * Helper to check if browser supports WebAuthn / Passkeys
+ */
+export const isPasskeySupported = () => {
+    return typeof window !== 'undefined' && 
+           window.PublicKeyCredential !== undefined &&
+           typeof window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function';
 };

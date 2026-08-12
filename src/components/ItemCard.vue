@@ -39,6 +39,9 @@ export default {
     }
   },
   computed: {
+    product() {
+      return this.item?.product || this.item?.foodItem || {};
+    },
     localQuantity: {
       get() {
         return this.item.quantity;
@@ -56,14 +59,14 @@ export default {
     <div class="d-flex flex-no-wrap" style="min-width: 0;">
 
       <v-img
-          v-if="item.foodItem?.category?.imageUrl"
+          v-if="product.category?.imageUrl"
           height="100"
           width="100"
           min-width="100"
           max-width="250"
           class="rounded-lg flex-shrink-0 ma-3 bg-grey-lighten-4"
           cover
-          :src="item.foodItem.category.imageUrl">
+          :src="product.category.imageUrl">
       </v-img>
       <v-img
           v-else
@@ -81,7 +84,7 @@ export default {
         <!-- Title row with icon aligned -->
         <div class="d-flex align-start" style="min-width: 0;">
           <span class="text-body-1 text-start font-weight-medium text-truncate" style="min-width: 0; flex: 1;">
-            {{item.foodItem.brand}} - {{item.foodItem.productName}}
+            {{ product.brand ? product.brand + ' - ' : '' }}{{ product.productName || 'Scanning product...' }}
           </span>
           <v-btn
               density="compact"
@@ -94,7 +97,7 @@ export default {
         </div>
 
         <v-card-subtitle class="text-start pa-0 mt-1">
-          <v-icon :icon="icons.mdiBarcode" size="small"></v-icon> {{item.foodItem.barcode}}
+          <v-icon :icon="icons.mdiBarcode" size="small"></v-icon> {{ product.barcode }}
         </v-card-subtitle>
 
         <div class="d-flex flex-wrap align-center justify-space-between mt-3 ga-2">
@@ -119,7 +122,7 @@ export default {
       <v-card>
         <v-card-title class="text-h5">Confirm Deletion</v-card-title>
         <v-card-text>
-          Are you sure you want to delete '{{ item.foodItem.brand }} - {{ item.foodItem.productName }}'? This action cannot be undone.
+          Are you sure you want to delete '{{ product.brand ? product.brand + ' - ' : '' }}{{ product.productName || 'this item' }}'? This action cannot be undone.
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>

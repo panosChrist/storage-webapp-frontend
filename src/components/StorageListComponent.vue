@@ -89,6 +89,14 @@ export default {
     },
     goToLocations() {
       this.$router.push('/locations');
+    },
+    async handleItemDeleted(itemId) {
+      try {
+        await itemService.deleteItem(itemId);
+        this.storageList = this.storageList.filter(item => item.id !== itemId);
+      } catch (error) {
+        console.error('Failed to delete item:', error);
+      }
     }
   },
   async mounted() {
@@ -235,12 +243,22 @@ export default {
 
         </v-card>
 
-        <ItemCard
+        <v-row density="comfortable">
+          <v-col
             v-for="item in storageList"
             :key="item.id"
-            :item="item"
-            @update-quantity="updateQuantity"
-        />
+            cols="12"
+            sm="6"
+            md="4"
+            lg="3"
+          >
+            <ItemCard
+                :item="item"
+                @update-quantity="updateQuantity"
+                @item-deleted="handleItemDeleted"
+            />
+          </v-col>
+        </v-row>
       </template>
 
     </v-container>

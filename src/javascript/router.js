@@ -3,6 +3,12 @@ import ItemDetailView from "../components/ItemDetailComponent.vue";
 import StorageListComponent from "../components/StorageListComponent.vue";
 import {getUser, login, handleLoginCallback} from "./authService.js";
 import LocationsComponent from "../components/LocationsComponent.vue";
+import SettingsHubComponent from "../components/SettingsHubComponent.vue";
+import ThemeSelectionComponent from "../components/ThemeSelectionComponent.vue";
+import ProfileDetailsComponent from "../components/ProfileDetailsComponent.vue";
+import PlanBillingComponent from "../components/PlanBillingComponent.vue";
+import NotificationSettingsComponent from "../components/NotificationSettingsComponent.vue";
+import LoginComponent from "../components/LoginComponent.vue";
 
 const routes = [
     {
@@ -10,6 +16,11 @@ const routes = [
         name: 'home',
         meta: { requiresAuth: true },
         component: StorageListComponent },
+    {
+        path: '/login',
+        name: 'login',
+        meta: { requiresAuth: false },
+        component: LoginComponent },
     {
         path: '/item/:id',
         name: 'item-detail',
@@ -20,6 +31,31 @@ const routes = [
         name: 'locations',
         meta: { requiresAuth: true },
         component: LocationsComponent },
+    {
+        path: '/settings',
+        name: 'settings',
+        meta: { requiresAuth: true },
+        component: SettingsHubComponent },
+    {
+        path: '/settings/theme',
+        name: 'theme-selection',
+        meta: { requiresAuth: true },
+        component: ThemeSelectionComponent },
+    {
+        path: '/settings/profile',
+        name: 'profile-details',
+        meta: { requiresAuth: true },
+        component: ProfileDetailsComponent },
+    {
+        path: '/settings/billing',
+        name: 'plan-billing',
+        meta: { requiresAuth: true },
+        component: PlanBillingComponent },
+    {
+        path: '/settings/notifications',
+        name: 'notification-settings',
+        meta: { requiresAuth: true },
+        component: NotificationSettingsComponent },
     {
         path: '/login/callback',
         meta: { requiresAuth: false },
@@ -45,9 +81,7 @@ const router = createRouter({
 router.beforeEach(async (to, from) => {
     // Skip authentication entirely if disabled via environment variable
     if (import.meta.env.VITE_DISABLE_AUTH === 'true') {
-
         console.log("Skipping authentication check because VITE_DISABLE_AUTH is set to true");
-
         return true;
     }
 
@@ -56,8 +90,7 @@ router.beforeEach(async (to, from) => {
         if (user && !user.expired) {
             return true; // User is authenticated, proceed
         } else {
-            login(); // User is not authenticated, redirect to login
-            return false; // Abort the current Vue Router navigation while the browser redirects
+            return { name: 'login' }; // Redirect to the login choice portal
         }
     } else {
         return true; // Route does not require auth

@@ -23,6 +23,11 @@ export default {
       isUpdatingLocation: false,
     }
   },
+  computed: {
+    product() {
+      return this.item?.product || this.item?.foodItem || {};
+    }
+  },
   methods: {
     async handleLocationChange(newLocationId) {
       if (!newLocationId) return;
@@ -31,10 +36,8 @@ export default {
       try {
         await itemService.updateItemLocation(this.item.id, newLocationId);
         console.log("Location updated successfully!");
-        // Optional: Show a success toast/snackbar here
       } catch (error) {
         console.error("Failed to update location:", error);
-        // Optional: Revert the dropdown if the API call fails
       } finally {
         this.isUpdatingLocation = false;
       }
@@ -101,17 +104,17 @@ export default {
         style="margin-bottom: 32px;">
 
       <v-img
-          v-if="item.foodItem?.category?.imageUrl"
-          :src="item.foodItem.category.imageUrl">
+          v-if="product.category?.imageUrl"
+          :src="product.category.imageUrl">
       </v-img>
       <v-img
           v-else
           src="https://api.minio.christakis.dev/storage-images/image-not-found.png">
       </v-img>
-
+{{product}}
       <v-card-title
           class="text-wrap text-start">
-        {{ item.foodItem.brand }} - {{ item.foodItem.productName }}
+        {{ product.brand ? product.brand + ' - ' : '' }}{{ product.productName || 'Scanning product...' }}
       </v-card-title>
       <v-card-subtitle
           class="text-start"
@@ -119,7 +122,7 @@ export default {
         <v-icon :icon="icons.mdiBarcode"
                 style="margin-right: 8px">
         </v-icon>
-        {{ item.foodItem.barcode }}
+        {{ product.barcode }}
       </v-card-subtitle>
       <v-chip
           label
@@ -158,6 +161,7 @@ export default {
     </v-card>
 
     <v-card
+        v-if="product.ingredientsList && product.ingredientsList.length > 0"
         flat
         style="margin-bottom: 32px;">
       <v-card-title
@@ -166,16 +170,17 @@ export default {
         </v-icon>
         Ingredients
       </v-card-title>
-      <div v-for="ingredients in item.foodItem.ingredientsList">
+      <div v-for="ingredients in product.ingredientsList" :key="ingredients.id">
         <v-card-text
             class="text-start"
-            v-if="ingredients.language === 'German'">
+            v-if="['de', 'German', 'en', 'English', 'el', 'Greek'].includes(ingredients.language)">
+          <div class="text-caption text-uppercase font-weight-bold color-primary mb-1">{{ ingredients.language }}:</div>
           {{ingredients.ingredients}}
         </v-card-text>
       </div>
     </v-card>
 
-    <v-card flat style="margin-bottom: 32px;">
+    <v-card v-if="product.basicNutritionData" flat style="margin-bottom: 32px;">
       <div class="d-flex justify-space-between align-center">
         <v-card-title class="text-start"><v-icon :icon="icons.mdiNutrition" style="margin-bottom: 8px"></v-icon> Nutrition Facts</v-card-title>
         <v-card-subtitle class="text-start text-uppercase">per 100G</v-card-subtitle>
@@ -185,31 +190,31 @@ export default {
         <v-row no-gutters>
           <v-col cols="6"  align-self="stretch"  class=" border-b border-e">
             <v-card-subtitle class="text-start " style="padding-left: 0" >Calories</v-card-subtitle>
-            <v-card-title class="text-start text-uppercase" style="padding-left: 0">{{item.foodItem.basicNutritionData.energyKcal}}</v-card-title>
+            <v-card-title class="text-start text-uppercase" style="padding-left: 0">{{product.basicNutritionData.energyKcal || 0}}</v-card-title>
           </v-col>
           <v-col cols="6" align-self="stretch" class="border-b" style="padding-left: 16px">
             <v-card-subtitle class="text-start" style="padding-left: 0" >Total FAT</v-card-subtitle>
-            <v-card-title class="text-start text-uppercase" style="padding-left: 0">{{item.foodItem.basicNutritionData.fatGrams}}</v-card-title>
+            <v-card-title class="text-start text-uppercase" style="padding-left: 0">{{product.basicNutritionData.fatGrams || 0}}</v-card-title>
           </v-col>
         </v-row>
         <v-row no-gutters>
           <v-col cols="6"  align-self="stretch"  class=" border-b border-e">
             <v-card-subtitle class="text-start " style="padding-left: 0" >Carbs</v-card-subtitle>
-            <v-card-title class="text-start text-uppercase" style="padding-left: 0">{{item.foodItem.basicNutritionData.carbohydratesGrams}}</v-card-title>
+            <v-card-title class="text-start text-uppercase" style="padding-left: 0">{{product.basicNutritionData.carbohydratesGrams || 0}}</v-card-title>
           </v-col>
           <v-col cols="6" align-self="stretch" class="border-b" style="padding-left: 16px">
             <v-card-subtitle class="text-start" style="padding-left: 0" >Salt</v-card-subtitle>
-            <v-card-title class="text-start text-uppercase" style="padding-left: 0">{{item.foodItem.basicNutritionData.saltGrams}}</v-card-title>
+            <v-card-title class="text-start text-uppercase" style="padding-left: 0">{{product.basicNutritionData.saltGrams || 0}}</v-card-title>
           </v-col>
         </v-row>
         <v-row no-gutters>
           <v-col cols="6"  align-self="stretch"  class="border-e">
             <v-card-subtitle class="text-start " style="padding-left: 0" >Protein</v-card-subtitle>
-            <v-card-title class="text-start text-uppercase" style="padding-left: 0">{{item.foodItem.basicNutritionData.proteinGrams}}</v-card-title>
+            <v-card-title class="text-start text-uppercase" style="padding-left: 0">{{product.basicNutritionData.proteinGrams || 0}}</v-card-title>
           </v-col>
           <v-col cols="6" align-self="stretch"  style="padding-left: 16px">
             <v-card-subtitle class="text-start" style="padding-left: 0" >Sugar</v-card-subtitle>
-            <v-card-title class="text-start text-uppercase" style="padding-left: 0">{{item.foodItem.basicNutritionData.sugarGrams}}</v-card-title>
+            <v-card-title class="text-start text-uppercase" style="padding-left: 0">{{product.basicNutritionData.sugarGrams || 0}}</v-card-title>
           </v-col>
         </v-row>
         <p class="text-caption text-start text-medium-emphasis font-italic mt-4">

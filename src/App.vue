@@ -2,14 +2,28 @@
 import StorageListComponent from "./components/StorageListComponent.vue";
 import axios from "axios";
 import {itemService} from "./javascript/api.js";
+import {logout} from "./javascript/authService.js";
 import BarcodeScannerDialogComponent from "./components/BarcodeScannerDialogComponent.vue";
-import { mdiHome, mdiClose, mdiPlus, mdiBarcodeScan, mdiDelete, mdiMapMarker, mdiCheckBold } from '@mdi/js';
+import UserProfileMenu from "./components/UserProfileMenu.vue";
+import {
+  mdiHome,
+  mdiClose,
+  mdiPlus,
+  mdiBarcodeScan,
+  mdiDelete,
+  mdiMapMarker,
+  mdiCheckBold,
+  mdiAccount,
+  mdiWeatherSunny,
+  mdiWeatherNight
+} from '@mdi/js';
 
 //TODO add comments, logs, decouple everything
 export default {
   components: {
     StorageListComponent,
-    BarcodeScannerDialogComponent
+    BarcodeScannerDialogComponent,
+    UserProfileMenu
   },
   data() {
     return {
@@ -20,7 +34,10 @@ export default {
         mdiBarcodeScan,
         mdiDelete,
         mdiMapMarker,
-        mdiCheckBold
+        mdiCheckBold,
+        mdiAccount,
+        mdiWeatherSunny,
+        mdiWeatherNight
       },
       showCamera: false,
       fabOpen: false,
@@ -35,6 +52,12 @@ export default {
       streamController: null,
       itemExists: false,
       showCheckResult: false,
+      userMenu: false,
+      user: {
+        name: 'Alexander Wright',
+        email: 'alexander.wright@email.com',
+        avatarUrl: ''
+      }
     }
   },
   methods: {
@@ -73,6 +96,36 @@ export default {
       } finally {
         this.cameraDialogOnCheck = false;
       }
+    },
+
+    handleMenuOption(optionKey) {
+      console.log('User selected option:', optionKey);
+      this.userMenu = false;
+      if (optionKey === 'profile') {
+        this.$router.push('/settings');
+      }
+    },
+
+    onSignOut() {
+      console.log('Signing out user...');
+      this.userMenu = false;
+      logout();
+    },
+
+    toggleTheme() {
+      const isDark = this.$vuetify?.theme?.global?.current?.dark;
+      const newTheme = isDark ? 'light' : 'dark';
+      if (typeof this.$vuetify?.theme?.change === 'function') {
+        this.$vuetify.theme.change(newTheme);
+      } else if (this.$vuetify?.theme?.global) {
+        this.$vuetify.theme.global.name = newTheme;
+      }
+      localStorage.setItem('app_theme', newTheme);
+    }
+  },
+  computed: {
+    isDarkTheme() {
+      return this.$vuetify?.theme?.global?.current?.dark || false;
     }
   },
   async mounted() {
@@ -93,11 +146,45 @@ export default {
         <v-app-bar-nav-icon @click.stop="drawer =!drawer"></v-app-bar-nav-icon>
       </template>
 
-      <template v-slot:append>
-          <v-avatar color="blue"></v-avatar>
-      </template>
-
       <v-app-bar-title>Storage Solution</v-app-bar-title>
+
+      <template v-slot:append>
+        <!-- Theme Toggle Button -->
+        <v-btn
+          icon
+          variant="text"
+          class="mr-2"
+          @click="toggleTheme"
+          :title="isDarkTheme ? 'Switch to Light Theme' : 'Switch to Dark Theme'"
+        >
+          <v-icon :icon="isDarkTheme ? icons.mdiWeatherSunny : icons.mdiWeatherNight"></v-icon>
+        </v-btn>
+
+        <v-menu
+          v-model="userMenu"
+          :close-on-content-click="false"
+          location="bottom end"
+          offset="8"
+          transition="scale-transition"
+        >
+          <template v-slot:activator="{ props }">
+            <v-avatar
+              color="#0B4636"
+              class="cursor-pointer elevation-1 me-3"
+              size="40"
+              v-bind="props"
+            >
+              <v-icon color="white" :icon="icons.mdiAccount"></v-icon>
+            </v-avatar>
+          </template>
+
+          <user-profile-menu
+            :user="user"
+            @select-option="handleMenuOption"
+            @sign-out="onSignOut"
+          />
+        </v-menu>
+      </template>
     </v-app-bar>
 
     <v-navigation-drawer
@@ -112,13 +199,11 @@ export default {
 
       <v-list-item v-for="location in locationList">{{location.name}}</v-list-item>
       <v-list-item :to="{ name: 'locations' }" @click="drawer = false" :prepend-icon="icons.mdiMapMarker " title="Location"></v-list-item>
-      <v-list-item>Settings</v-list-item>
+      <v-list-item :to="{ name: 'settings' }" @click="drawer = false" title="Settings"></v-list-item>
       <v-list-item>Help</v-list-item>
     </v-navigation-drawer>
-    <v-main>
-
-      <router-view></router-view>
-
+    <v-main style="overflow-y: auto;">
+      <router-view @sign-out="onSignOut"></router-view>
     </v-main>
     <v-fab
         app
