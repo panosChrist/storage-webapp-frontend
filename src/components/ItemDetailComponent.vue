@@ -1,19 +1,25 @@
 <script>
 import { useRoute } from 'vue-router';
 import {itemService} from '../javascript/api';
-import {mdiBarcode,mdiAlertCircle, mdiCheckCircle, mdiLeaf, mdiNutrition, mdiMapMarker } from "@mdi/js";
+import {mdiArrowLeft, mdiBarcode, mdiAlertCircle, mdiCheckCircle, mdiLeaf, mdiNutrition, mdiMapMarker, mdiShieldAlert, mdiAlertOctagon, mdiFire, mdiBiohazard, mdiClockOutline } from "@mdi/js";
 
 export default {
   name: "ItemDetailComponent",
   data() {
     return {
       icons: {
+        mdiArrowLeft,
         mdiBarcode,
         mdiAlertCircle,
         mdiCheckCircle,
         mdiLeaf,
         mdiNutrition,
-        mdiMapMarker
+        mdiMapMarker,
+        mdiShieldAlert,
+        mdiAlertOctagon,
+        mdiFire,
+        mdiBiohazard,
+        mdiClockOutline
       },
       item: null,
       loading: true,
@@ -29,6 +35,13 @@ export default {
     }
   },
   methods: {
+    goBack() {
+      if (this.$router) {
+        this.$router.back();
+      } else {
+        this.$emit('navigate', 'home');
+      }
+    },
     async handleLocationChange(newLocationId) {
       if (!newLocationId) return;
 
@@ -47,7 +60,6 @@ export default {
     const itemId = this.$route.params.id;
 
     try {
-      // 7. Fetch both the foodItem details and the locations at the same time
       const [itemData, locationsData] = await Promise.all([
         itemService.getItemDetails(itemId),
         itemService.getAllLocations()
@@ -56,13 +68,11 @@ export default {
       this.item = itemData;
       this.locations = locationsData;
 
-      // 8. Set the initial value of the dropdown.
-      // Adjust 'location.id' based on how your backend returns the foodItem's current location!
       this.selectedLocationId = this.item.location?.id || null;
 
     } catch (error) {
       console.error('Failed to load data:', error);
-      this.error = 'Failed to load foodItem details or locations';
+      this.error = 'Failed to load item details or locations';
     } finally {
       this.loading = false;
     }
@@ -95,10 +105,28 @@ export default {
     </v-btn>
   </v-container>
 
-  <!-- Content (only renders when foodItem exists) -->
+  <!-- Content (only renders when item exists) -->
   <v-container
       v-else-if="item"
-      style="height: calc(100vh - 180px); overflow-y: auto; background-color: #F5F5F5; ">
+      style="height: calc(100vh - 104px); overflow-y: auto; background-color: #F5F5F5; ">
+    
+    <!-- Top Back Navigation -->
+    <div class="d-flex align-center mb-4 pt-2">
+      <v-btn
+        icon
+        variant="text"
+        density="comfortable"
+        color="#00483C"
+        class="mr-2"
+        @click="goBack"
+        title="Back to Storage List"
+      >
+        <v-icon :icon="icons.mdiArrowLeft"></v-icon>
+      </v-btn>
+      <span class="text-caption font-weight-bold text-teal-darken-4 text-uppercase tracking-wider">
+        STORAGE / ITEM DETAILS
+      </span>
+    </div>
     <v-card
         flat
         style="margin-bottom: 32px;">
@@ -111,7 +139,6 @@ export default {
           v-else
           src="https://api.minio.christakis.dev/storage-images/image-not-found.png">
       </v-img>
-{{product}}
       <v-card-title
           class="text-wrap text-start">
         {{ product.brand ? product.brand + ' - ' : '' }}{{ product.productName || 'Scanning product...' }}
@@ -160,6 +187,57 @@ export default {
       </v-card-text>
     </v-card>
 
+    <!-- Non-Food Specifications Container (Flammable, Hazardous, Period After Opening) -->
+    <v-card v-if="product.periodAfterOpeningMonths != null || product.isHazardous != null || product.isFlammable != null" flat style="margin-bottom: 32px;">
+      <div class="d-flex justify-space-between align-center">
+        <v-card-title class="text-start">
+          <v-icon :icon="icons.mdiShieldAlert" style="margin-bottom: 4px" class="mr-1"></v-icon>
+          Product Specifications
+        </v-card-title>
+        <v-card-subtitle class="text-start text-uppercase pr-4">NON-FOOD</v-card-subtitle>
+      </div>
+
+      <v-card-text>
+        <v-row no-gutters>
+          <v-col cols="4" class="border-e pa-3 align-self-stretch">
+            <v-card-subtitle class="text-start pa-0 mb-2">Flammable</v-card-subtitle>
+            <div class="d-flex align-center">
+              <v-chip size="small" :color="product.isFlammable ? 'error' : 'grey-lighten-1'" label>
+                {{ product.isFlammable ? 'YES' : 'NO' }}
+              </v-chip>
+            </div>
+          </v-col>
+
+          <v-col cols="4" class="border-e pa-3 align-self-stretch">
+            <v-card-subtitle class="text-start pa-0 mb-2">Hazardous</v-card-subtitle>
+            <div class="d-flex align-center">
+              <v-chip size="small" :color="product.isHazardous ? 'warning' : 'grey-lighten-1'" label>
+                {{ product.isHazardous ? 'YES' : 'NO' }}
+              </v-chip>
+            </div>
+          </v-col>
+
+          <v-col cols="4" class="pa-3 align-self-stretch">
+            <v-card-subtitle class="text-start pa-0 mb-2">Period After Opening</v-card-subtitle>
+            <v-card-title class="text-start text-uppercase pa-0 font-weight-bold" style="font-size: 1.1rem;">
+              {{ product.periodAfterOpeningMonths ? product.periodAfterOpeningMonths + ' Months' : 'N/A' }}
+            </v-card-title>
+          </v-col>
+        </v-row>
+      </v-card-text>
+    </v-card>
+
+    <!-- Safety Instructions Container -->
+    <v-card v-if="product.safetyInstructions" flat style="margin-bottom: 32px;">
+      <v-card-title class="text-start">
+        <v-icon :icon="icons.mdiAlertOctagon" style="margin-bottom: 4px" class="mr-1" color="amber-darken-3"></v-icon>
+        Safety Instructions & Directions
+      </v-card-title>
+      <v-card-text class="text-start text-body-1">
+        {{ product.safetyInstructions }}
+      </v-card-text>
+    </v-card>
+
     <v-card
         v-if="product.ingredientsList && product.ingredientsList.length > 0"
         flat
@@ -180,6 +258,7 @@ export default {
       </div>
     </v-card>
 
+    <!-- Nutrition Facts Container (Food Items Only) -->
     <v-card v-if="product.basicNutritionData" flat style="margin-bottom: 32px;">
       <div class="d-flex justify-space-between align-center">
         <v-card-title class="text-start"><v-icon :icon="icons.mdiNutrition" style="margin-bottom: 8px"></v-icon> Nutrition Facts</v-card-title>

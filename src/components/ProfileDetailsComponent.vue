@@ -10,9 +10,13 @@ import {
   mdiChevronDown,
   mdiClose,
   mdiFingerprint,
-  mdiOpenInNew
+  mdiOpenInNew,
+  mdiTranslate,
+  mdiClockOutline,
+  mdiCalendarRange
 } from '@mdi/js';
 import { isPasskeySupported } from '../javascript/authService.js';
+import { itemService } from '../javascript/api.js';
 
 export default {
   name: 'ProfileDetailsComponent',
@@ -24,7 +28,7 @@ export default {
         email: 'alexander.vance@inventoryarchitect.com',
         role: 'Estate Manager',
         accountRole: 'Administrator',
-        timezone: 'pst',
+        timezone: 'Europe/Athens',
         avatarUrl: ''
       })
     }
@@ -41,13 +45,21 @@ export default {
         mdiChevronDown,
         mdiClose,
         mdiFingerprint,
-        mdiOpenInNew
+        mdiOpenInNew,
+        mdiTranslate,
+        mdiClockOutline,
+        mdiCalendarRange
       },
       hasWebAuthnSupport: false,
+      loading: false,
+      userProfile: null,
       form: {
-        fullName: this.user.name || 'Alexander Vance',
-        emailAddress: this.user.email || 'alexander.vance@inventoryarchitect.com',
-        timezone: 'pst'
+        fullName: '',
+        authentikEmail: '',
+        displayEmail: '',
+        language: 'en',
+        timezone: 'Europe/Athens',
+        dateFormat: 'DD/MM/YYYY'
       },
       savedSuccess: false,
       avatarDialogOpen: false,
@@ -67,8 +79,34 @@ export default {
   },
   mounted() {
     this.hasWebAuthnSupport = isPasskeySupported();
+    this.loadUserProfile();
   },
   methods: {
+    async loadUserProfile() {
+      this.loading = true;
+      try {
+        const profile = await itemService.getUserProfile();
+        if (profile) {
+          this.userProfile = profile;
+          this.form.fullName = profile.fullName || this.user.name || '';
+          this.form.authentikEmail = profile.email || this.user.email || '';
+          this.form.displayEmail = profile.displayEmail || profile.email || '';
+          this.form.language = profile.language || 'en';
+          this.form.timezone = profile.timezone || 'Europe/Athens';
+          this.form.dateFormat = profile.dateFormat || 'DD/MM/YYYY';
+
+          if (profile.avatarUrl) {
+            this.user.avatarUrl = profile.avatarUrl;
+            this.$emit('update-avatar', profile.avatarUrl);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load user profile:', error);
+      } finally {
+        this.loading = false;
+      }
+    },
+
     goBack() {
       if (this.$router) {
         this.$router.push('/settings');
@@ -76,30 +114,54 @@ export default {
         this.$emit('navigate', 'settings');
       }
     },
+
     openAuthentikSecurity() {
       const securityUrl = import.meta.env.VITE_AUTHENTIK_SECURITY_URL || (import.meta.env.VITE_OIDC_AUTHORITY + '/if/user/#/settings;page-security');
       window.open(securityUrl, '_blank');
     },
-    saveChanges() {
-      console.log('Saving profile details:', this.form);
-      this.user.name = this.form.fullName;
-      this.user.email = this.form.emailAddress;
-      this.savedSuccess = true;
-      setTimeout(() => {
-        this.savedSuccess = false;
-      }, 3000);
+
+    async saveChanges() {
+      try {
+        this.loading = true;
+        const updatePayload = {
+          displayEmail: this.form.displayEmail,
+          fullName: this.form.fullName,
+          language: this.form.language,
+          timezone: this.form.timezone,
+          dateFormat: this.form.dateFormat,
+          avatarUrl: this.user.avatarUrl || (this.userProfile ? this.userProfile.avatarUrl : '')
+        };
+
+        const updatedProfile = await itemService.updateUserProfile(updatePayload);
+        this.userProfile = updatedProfile;
+        this.user.name = updatedProfile.fullName;
+
+        this.savedSuccess = true;
+        setTimeout(() => {
+          this.savedSuccess = false;
+        }, 3000);
+      } catch (error) {
+        console.error('Failed to save profile changes:', error);
+      } finally {
+        this.loading = false;
+      }
     },
+
     openAvatarDialog() {
       this.avatarDialogOpen = true;
     },
+
     selectAvatar(url) {
       this.user.avatarUrl = url;
       this.$emit('update-avatar', url);
       this.avatarDialogOpen = false;
+      this.saveChanges();
     },
+
     triggerFileInput() {
       this.$refs.fileInput.click();
     },
+
     onFileSelected(event) {
       const file = event.target.files[0];
       if (file) {
@@ -109,6 +171,7 @@ export default {
           this.user.avatarUrl = dataUrl;
           this.$emit('update-avatar', dataUrl);
           this.avatarDialogOpen = false;
+          this.saveChanges();
         };
         reader.readAsDataURL(file);
       }
@@ -150,10 +213,10 @@ export default {
     <!-- Context Header -->
     <div class="mb-8">
       <h1 class="text-h4 text-md-h3 font-weight-bold text-teal-darken-4 tracking-tight mb-2">
-        Profile Details
+        Profile & Regional Settings
       </h1>
       <p class="text-body-1 text-grey-medium-emphasis style-subtitle">
-        Manage your identity, role permissions, and communication preferences.
+        Manage your identity, Authentik credentials, language, timezone, and date format preferences.
       </p>
     </div>
 
@@ -167,10 +230,10 @@ export default {
       rounded="0"
       closable
     >
-      Profile information saved successfully!
+      Profile and regional settings saved successfully!
     </v-alert>
 
-    <!-- Bento Grid Layout with Equal Desktop Heights (align="stretch") -->
+    <!-- Bento Grid Layout -->
     <v-row class="gy-6 mb-12" align="stretch">
       
       <!-- Left Column: Avatar & Meta Cards -->
@@ -190,7 +253,7 @@ export default {
           </div>
 
           <h2 class="text-h6 font-weight-bold text-grey-darken-4 mb-1">
-            {{ user.name }}
+            {{ form.fullName || user.name }}
           </h2>
           
           <div class="text-subtitle-2 text-grey-medium-emphasis mb-5">
@@ -234,7 +297,7 @@ export default {
           </p>
         </v-card>
 
-        <!-- Passkeys & Security Card -->
+        <!-- Authentik SSO Security Card -->
         <v-card class="pa-5 elevation-1 flex-grow-1 d-flex flex-column justify-space-between" color="surface" rounded="0">
           <div>
             <div class="d-flex align-center justify-space-between mb-3">
@@ -244,22 +307,22 @@ export default {
                 </v-avatar>
                 <div>
                   <div class="text-caption text-grey-medium-emphasis text-uppercase font-weight-bold tracking-wider">
-                    Passkeys & Security
+                    Authentik SSO
                   </div>
                   <div class="text-body-2 font-weight-bold text-grey-darken-4">
-                    Passwordless Auth
+                    Identity & Security
                   </div>
                 </div>
               </div>
-              <v-chip size="x-small" :color="hasWebAuthnSupport ? '#00483C' : 'warning'" variant="flat" rounded="0" class="text-white font-weight-bold">
-                {{ hasWebAuthnSupport ? 'Supported' : 'WebAuthn' }}
+              <v-chip size="x-small" color="#00483C" variant="flat" rounded="0" class="text-white font-weight-bold">
+                Authentik
               </v-chip>
             </div>
 
             <v-divider opacity="0.12" class="my-3"></v-divider>
 
             <p class="text-caption text-grey-medium-emphasis mb-4 leading-relaxed">
-              Register biometric credentials (Touch ID, Face ID, Fingerprint) or security keys via Authentik SSO to log in without passwords.
+              Password changes, 2FA/MFA devices, and passkeys are securely managed directly through your Authentik Identity Provider portal.
             </p>
           </div>
 
@@ -272,13 +335,13 @@ export default {
             @click="openAuthentikSecurity"
           >
             <v-icon start size="16" :icon="icons.mdiOpenInNew"></v-icon>
-            Manage Passkeys in Authentik
+            Manage Security in Authentik
           </v-btn>
         </v-card>
 
       </v-col>
 
-      <!-- Right Column: Personal Information Form Card (Matching Left Height) -->
+      <!-- Right Column: Personal & Regional Information Form Card -->
       <v-col cols="12" md="8" class="d-flex flex-column">
         <v-card class="pa-6 pa-md-8 elevation-1 fill-height d-flex flex-column justify-space-between" color="surface" rounded="0">
           
@@ -302,25 +365,39 @@ export default {
                 required
               ></v-text-field>
 
-              <!-- Email Address Input with Verified Indicator -->
+              <!-- Authentik Primary Email (Read-only Claim) -->
               <v-text-field
-                v-model="form.emailAddress"
-                label="Email Address"
+                v-model="form.authentikEmail"
+                label="Authentik Primary Email (SSO Claim)"
+                variant="filled"
+                density="comfortable"
+                bg-color="#E0E3E3"
+                color="#00483C"
+                rounded="0"
+                class="mb-4"
+                readonly
+              >
+                <template v-slot:append-inner>
+                  <div class="d-flex align-center text-caption font-weight-bold text-teal-darken-4 px-1">
+                    <v-icon size="18" color="#00483C" class="mr-1" :icon="icons.mdiCheckDecagram"></v-icon>
+                    Authentik SSO
+                  </div>
+                </template>
+              </v-text-field>
+
+              <!-- Display Contact Email (Override Option) -->
+              <v-text-field
+                v-model="form.displayEmail"
+                label="Display Contact Email (Notification Override)"
                 variant="filled"
                 density="comfortable"
                 bg-color="#E0E3E3"
                 color="#00483C"
                 rounded="0"
                 class="mb-6"
-                required
-              >
-                <template v-slot:append-inner>
-                  <div class="d-flex align-center text-caption font-weight-bold text-teal-darken-4 px-1">
-                    <v-icon size="18" color="#00483C" class="mr-1" :icon="icons.mdiCheckDecagram"></v-icon>
-                    Verified
-                  </div>
-                </template>
-              </v-text-field>
+                hint="Used for notifications and app display if different from Authentik SSO email"
+                persistent-hint
+              ></v-text-field>
 
               <v-divider opacity="0.12" class="my-6"></v-divider>
 
@@ -329,17 +406,41 @@ export default {
                   Regional Settings
                 </div>
                 <div class="text-caption text-grey-medium-emphasis">
-                  Affects how numbers, dates, and currency are displayed across your devices.
+                  Configures language localization, timezone calculations, and date display formats across your storage web application.
                 </div>
               </div>
+
+              <!-- Preferred Language Select -->
+              <v-select
+                v-model="form.language"
+                :items="[
+                  { title: 'Greek (Ελληνικά)', value: 'el' },
+                  { title: 'German (Deutsch)', value: 'de' },
+                  { title: 'English (English)', value: 'en' }
+                ]"
+                label="Preferred Language"
+                variant="filled"
+                density="comfortable"
+                bg-color="#E0E3E3"
+                color="#00483C"
+                rounded="0"
+                class="mb-4"
+              >
+                <template v-slot:prepend-inner>
+                  <v-icon :icon="icons.mdiTranslate" color="#00483C" class="mr-2"></v-icon>
+                </template>
+              </v-select>
 
               <!-- Timezone Select Dropdown -->
               <v-select
                 v-model="form.timezone"
                 :items="[
-                  { title: 'Pacific Standard Time (PST)', value: 'pst' },
-                  { title: 'Eastern Standard Time (EST)', value: 'est' },
-                  { title: 'Coordinated Universal Time (UTC)', value: 'utc' }
+                  { title: 'Athens (EET / UTC+2)', value: 'Europe/Athens' },
+                  { title: 'Berlin / Paris (CET / UTC+1)', value: 'Europe/Berlin' },
+                  { title: 'London (GMT / UTC+0)', value: 'Europe/London' },
+                  { title: 'Coordinated Universal Time (UTC)', value: 'UTC' },
+                  { title: 'New York (EST / UTC-5)', value: 'America/New_York' },
+                  { title: 'Tokyo (JST / UTC+9)', value: 'Asia/Tokyo' }
                 ]"
                 label="Timezone"
                 variant="filled"
@@ -347,12 +448,38 @@ export default {
                 bg-color="#E0E3E3"
                 color="#00483C"
                 rounded="0"
+                class="mb-4"
+              >
+                <template v-slot:prepend-inner>
+                  <v-icon :icon="icons.mdiClockOutline" color="#00483C" class="mr-2"></v-icon>
+                </template>
+              </v-select>
+
+              <!-- Date Format Select Dropdown -->
+              <v-select
+                v-model="form.dateFormat"
+                :items="[
+                  { title: 'DD/MM/YYYY (e.g. 13/08/2026)', value: 'DD/MM/YYYY' },
+                  { title: 'YYYY-MM-DD (e.g. 2026-08-13)', value: 'YYYY-MM-DD' },
+                  { title: 'MM/DD/YYYY (e.g. 08/13/2026)', value: 'MM/DD/YYYY' }
+                ]"
+                label="Date Format"
+                variant="filled"
+                density="comfortable"
+                bg-color="#E0E3E3"
+                color="#00483C"
+                rounded="0"
                 class="mb-6"
-              ></v-select>
+              >
+                <template v-slot:prepend-inner>
+                  <v-icon :icon="icons.mdiCalendarRange" color="#00483C" class="mr-2"></v-icon>
+                </template>
+              </v-select>
+
             </v-form>
           </div>
 
-          <!-- Centered Save Changes Button with Ample Padding -->
+          <!-- Save Changes Button -->
           <div class="d-flex justify-center pt-6 pb-2">
             <v-btn
               type="button"
@@ -360,11 +487,12 @@ export default {
               variant="flat"
               size="large"
               rounded="0"
+              :loading="loading"
               class="text-white font-weight-bold px-10 py-3 text-none elevation-2"
               @click="saveChanges"
             >
               <v-icon start size="20" :icon="icons.mdiCheckBold"></v-icon>
-              Save Changes
+              Save Profile & Regional Settings
             </v-btn>
           </div>
 
@@ -373,7 +501,7 @@ export default {
 
     </v-row>
 
-    <!-- Avatar Selection Dialog Modal (Preset Avatars + Device Upload) -->
+    <!-- Avatar Selection Dialog Modal -->
     <v-dialog v-model="avatarDialogOpen" max-width="480">
       <v-card class="pa-4" rounded="0">
         <div class="d-flex justify-space-between align-center mb-4">
@@ -385,7 +513,7 @@ export default {
           </v-btn>
         </div>
 
-        <!-- Option 1: Upload from Device (Phone/PC) -->
+        <!-- Option 1: Upload from Device -->
         <v-btn
           block
           color="#00483C"

@@ -50,7 +50,9 @@ export default {
       drawer: false,
       locationList: [],
       streamController: null,
-      itemExists: false,
+      isChecking: false,
+      checkResult: null,
+      checkResultTimeout: null,
       showCheckResult: false,
       userMenu: false,
       user: {
@@ -60,10 +62,34 @@ export default {
       }
     }
   },
+  async mounted() {
+    try {
+      const locations = await itemService.getAllLocations();
+      if (locations) {
+        this.locationList = locations;
+      }
+    } catch (e) {
+      console.error('Failed to load locations', e);
+    }
+
+    try {
+      const profile = await itemService.getUserProfile();
+      if (profile) {
+        this.user.name = profile.fullName || this.user.name;
+        this.user.email = profile.displayEmail || profile.email || this.user.email;
+        if (profile.avatarUrl) {
+          this.user.avatarUrl = profile.avatarUrl;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load user profile on startup', e);
+    }
+  },
   methods: {
-    async onBarcodeAdd(barcode) {
+    async onBarcodeAdd(barcode, locationId) {
       try {
-        await itemService.addItemByBarcode(barcode);
+        const targetLocationId = locationId || (this.locationList.length > 0 ? this.locationList[0].id : null);
+        await itemService.addItemByBarcode(barcode, targetLocationId);
         // No need to manually update a list here!
         // The backend will broadcast the updated inventory via SSE,
         // and StorageListComponent will automatically re-render.
@@ -74,10 +100,10 @@ export default {
       }
     },
 
-    async onBarcodeDelete(barcode) {
+    async onBarcodeDelete(barcode, locationId) {
       try {
-        // Use the authenticated service instead of raw axios
-        await itemService.reduceItemByBarcode(barcode);
+        const targetLocationId = locationId || (this.locationList.length > 0 ? this.locationList[0].id : null);
+        await itemService.reduceItemByBarcode(barcode, targetLocationId);
 
       } catch (error) {
         console.error('Delete error:', error);
@@ -87,13 +113,92 @@ export default {
     },
 
     async onBarcodeCheck(barcode) {
+      this.isChecking = true;
+      this.showCheckResult = true;
+      this.checkResult = null;
+
+      if (this.checkResultTimeout) clearTimeout(this.checkResultTimeout);
+
       try {
-        this.itemExists = await itemService.checkIfItemExists(barcode);
-        this.showCheckResult = true;
+        const rawScanned = String(barcode).trim();
+        const cleanScannedBarcode = rawScanned.replace(/^0+/, '');
+
+        let allItems = [];
+        try {
+          allItems = await itemService.getAllItems();
+        } catch (e) {
+          console.warn('getAllItems failed, falling back to check endpoint', e);
+        }
+
+        const matchingItems = (allItems || []).filter(item => {
+          const productObj = item.product || item.foodItem || item || {};
+          const rawItemBarcode = String(productObj.barcode || item.barcode || '').trim();
+          if (!rawItemBarcode) return false;
+
+          const cleanItemBarcode = rawItemBarcode.replace(/^0+/, '');
+          return cleanItemBarcode === cleanScannedBarcode || rawItemBarcode === rawScanned;
+        });
+
+        if (matchingItems.length > 0) {
+          const firstProduct = matchingItems[0].product || matchingItems[0].foodItem || matchingItems[0] || {};
+          const totalQuantity = matchingItems.reduce((sum, i) => sum + (Number(i.quantity) || 0), 0);
+
+          const locationMap = {};
+          matchingItems.forEach(i => {
+            const locName = i.location?.name || 'Unassigned Location';
+            const qty = Number(i.quantity) || 0;
+            locationMap[locName] = (locationMap[locName] || 0) + qty;
+          });
+
+          const locations = Object.keys(locationMap).map(name => ({
+            locationName: name,
+            quantity: locationMap[name]
+          }));
+
+          this.checkResult = {
+            exists: true,
+            productName: firstProduct.productName || 'Scanned Item',
+            brand: firstProduct.brand || '',
+            totalQuantity: totalQuantity,
+            locations: locations
+          };
+        } else {
+          // Fallback to backend check endpoint
+          const backendResult = await itemService.checkIfItemExists(barcode);
+          if (backendResult && (backendResult.exists || backendResult === true)) {
+            this.checkResult = typeof backendResult === 'object' ? backendResult : {
+              exists: true,
+              productName: 'Scanned Item',
+              brand: '',
+              totalQuantity: 1,
+              locations: []
+            };
+          } else {
+            this.checkResult = {
+              exists: false,
+              productName: '',
+              brand: '',
+              totalQuantity: 0,
+              locations: []
+            };
+          }
+        }
+
+        this.checkResultTimeout = setTimeout(() => {
+          this.showCheckResult = false;
+        }, 5000);
 
       } catch (error) {
         console.error('Check error:', error);
+        this.checkResult = {
+          exists: false,
+          productName: '',
+          brand: '',
+          totalQuantity: 0,
+          locations: []
+        };
       } finally {
+        this.isChecking = false;
         this.cameraDialogOnCheck = false;
       }
     },
@@ -197,7 +302,19 @@ export default {
           title="Home">
       </v-list-item>
 
-      <v-list-item v-for="location in locationList">{{location.name}}</v-list-item>
+      <v-list-item v-for="location in locationList" :key="location.id" class="text-start">
+        <template v-slot:prepend>
+          <v-icon :icon="icons.mdiMapMarker" color="#00483C" class="mr-1"></v-icon>
+        </template>
+        <v-list-item-title class="font-weight-medium">
+          {{ location.name }}
+        </v-list-item-title>
+        <template v-slot:append>
+          <v-chip size="x-small" color="#00483C" class="text-white font-weight-bold">
+            {{ location.items ? location.items.reduce((acc, i) => acc + (i.quantity || 0), 0) : 0 }} items
+          </v-chip>
+        </template>
+      </v-list-item>
       <v-list-item :to="{ name: 'locations' }" @click="drawer = false" :prepend-icon="icons.mdiMapMarker " title="Location"></v-list-item>
       <v-list-item :to="{ name: 'settings' }" @click="drawer = false" title="Settings"></v-list-item>
       <v-list-item>Help</v-list-item>
@@ -235,29 +352,86 @@ export default {
       </v-speed-dial>
     </v-fab>
 
-    <v-dialog v-model="showCheckResult" max-width="400">
-      <v-card>
-        <v-card-title class="text-h6">Prüfergebnis</v-card-title>
-        <v-card-text>
-          <div v-if="itemExists" class="d-flex align-center text-success text-subtitle-1">
-            <v-icon :icon="icons.mdiCheckBold" color="success" class="mr-2"></v-icon>
-            Artikel ist in der Datenbank vorhanden.
-          </div>
-          <div v-else class="d-flex align-center text-error text-subtitle-1">
-            <v-icon :icon="icons.mdiClose" color="error" class="mr-2"></v-icon>
-            Artikel wurde nicht gefunden.
-          </div>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn color="primary" variant="text" @click="showCheckResult = false">Schließen</v-btn>
-        </v-card-actions>
+    <v-dialog v-model="showCheckResult" max-width="420">
+      <v-card class="rounded-xl pa-4">
+        <!-- Loading State Spinner -->
+        <div v-if="isChecking" class="d-flex flex-column align-center justify-center pa-6">
+          <v-progress-circular indeterminate color="#00483C" size="48" width="4" class="mb-4"></v-progress-circular>
+          <div class="text-subtitle-1 font-weight-bold text-grey-darken-3">Checking Availability...</div>
+          <div class="text-caption text-grey-darken-1">Searching storage locations for barcode</div>
+        </div>
+
+        <!-- Loaded Result State -->
+        <template v-else-if="checkResult">
+          <v-card-title class="d-flex align-center font-weight-bold pa-0 mb-3">
+            <v-icon
+              :icon="checkResult.exists ? icons.mdiCheckBold : icons.mdiClose"
+              :color="checkResult.exists ? 'success' : 'error'"
+              class="mr-2"
+            ></v-icon>
+            {{ checkResult.exists ? 'Item Availability' : 'Item Not Found' }}
+          </v-card-title>
+
+          <v-card-text class="pa-0 mb-4">
+            <template v-if="checkResult.exists">
+              <div v-if="checkResult.productName || checkResult.brand" class="text-subtitle-1 font-weight-bold text-start mb-2">
+                {{ checkResult.brand ? checkResult.brand + ' - ' : '' }}{{ checkResult.productName }}
+              </div>
+
+              <div class="d-flex text-start mb-3">
+                <span
+                  class="px-3 py-1 rounded-pill font-weight-bold text-white text-caption"
+                  style="background-color: #00483C; display: inline-block; white-space: nowrap;"
+                >
+                  Total Quantity Left: {{ checkResult.totalQuantity }}
+                </span>
+              </div>
+
+              <template v-if="checkResult.locations && checkResult.locations.length > 0">
+                <div class="text-caption font-weight-bold text-grey-darken-1 text-start mb-2">
+                  QUANTITY LEFT PER LOCATION:
+                </div>
+                <div class="bg-grey-lighten-4 rounded-lg pa-2">
+                  <div
+                    v-for="loc in checkResult.locations"
+                    :key="loc.locationName"
+                    class="d-flex justify-space-between align-center px-3 py-2 border-b-sm border-grey-lighten-2 text-start"
+                  >
+                    <div class="d-flex align-center">
+                      <v-icon :icon="icons.mdiMapMarker" size="small" class="mr-2" color="#00483C"></v-icon>
+                      <span class="font-weight-medium text-body-2 text-grey-darken-3">{{ loc.locationName }}</span>
+                    </div>
+                    <span
+                      class="px-3 py-1 rounded-pill font-weight-bold text-white text-caption ml-2"
+                      style="background-color: #00483C; display: inline-block; white-space: nowrap;"
+                    >
+                      Qty Left: {{ loc.quantity }}
+                    </span>
+                  </div>
+                </div>
+              </template>
+            </template>
+
+            <template v-else>
+              <div class="text-body-1 text-start text-grey-darken-1">
+                No items matching this barcode were found in your storage locations.
+              </div>
+            </template>
+          </v-card-text>
+
+          <v-card-actions class="justify-end pa-0">
+            <v-btn color="#00483C" variant="flat" rounded="pill" class="text-white px-6" @click="showCheckResult = false">
+              Close
+            </v-btn>
+          </v-card-actions>
+        </template>
       </v-card>
     </v-dialog>
 
     <BarcodeScannerDialogComponent
         v-model="cameraDialogOnAddOpen"
         title="Artikel hinzufügen"
+        :locations="locationList"
         @detect="onBarcodeAdd"
     />
 
@@ -271,6 +445,7 @@ export default {
         v-model="cameraDialogOnDelete"
         title="Artikel entfernen"
         found-text="Barcode erkannt. Wird von der Lagerliste verringert."
+        :locations="locationList"
         @detect="onBarcodeDelete"
     />
 

@@ -23,7 +23,8 @@ export default {
     modelValue: { type: Boolean, default: false },
     title: { type: String, default: 'Barcode Scanner' },
     searchingText: { type: String, default: 'Align barcode within the frame to scan' },
-    foundText: { type: String, default: 'Barcode Scanned!' }
+    foundText: { type: String, default: 'Barcode Scanned!' },
+    locations: { type: Array, default: () => [] }
   },
   emits: ['update:modelValue', 'detect', 'manual-entry'],
   data() {
@@ -45,6 +46,7 @@ export default {
       barcodeScanned: '',
       torchActive: false,
       scannedQty: 1,
+      selectedLocationId: null,
       facingMode: 'environment', // 'environment' = back, 'user' = front
       barcodeFormats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128']
     }
@@ -67,7 +69,19 @@ export default {
   },
   watch: {
     modelValue(newVal) {
-      if (!newVal) this.resetState();
+      if (!newVal) {
+        this.resetState();
+      } else if (this.locations && this.locations.length > 0 && !this.selectedLocationId) {
+        this.selectedLocationId = this.locations[0].id;
+      }
+    },
+    locations: {
+      immediate: true,
+      handler(newLocs) {
+        if (newLocs && newLocs.length > 0 && !this.selectedLocationId) {
+          this.selectedLocationId = newLocs[0].id;
+        }
+      }
     }
   },
   methods: {
@@ -92,7 +106,7 @@ export default {
         this.loading = true;
         this.barcodeFound = true;
         this.barcodeScanned = barcode;
-        this.$emit('detect', barcode, this.resetState, this.close);
+        this.$emit('detect', barcode, this.selectedLocationId, this.resetState, this.close);
       }
     },
     onError(error) {
@@ -247,6 +261,29 @@ export default {
             </div>
           </v-card>
         </v-slide-y-reverse-transition>
+
+        <!-- Location Selection Radio Group -->
+        <div v-if="locations && locations.length > 0" class="w-100 mb-3 px-2" style="max-width: 400px;">
+          <div class="text-caption text-white font-weight-bold text-center mb-1">
+            Target Location:
+          </div>
+          <v-radio-group
+            v-model="selectedLocationId"
+            inline
+            density="compact"
+            hide-details
+            class="d-flex justify-center bg-rgba-dark border-glass pa-1 rounded-xl"
+          >
+            <v-radio
+              v-for="loc in locations"
+              :key="loc.id"
+              :label="loc.name"
+              :value="loc.id"
+              color="#7FFFD4"
+              class="text-white mx-1"
+            ></v-radio>
+          </v-radio-group>
+        </div>
 
         <!-- Instruction Pill -->
         <v-chip

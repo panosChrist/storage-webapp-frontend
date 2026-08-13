@@ -55,9 +55,8 @@ export default {
 </script>
 
 <template>
-  <v-card style="margin-bottom: 16px; overflow: hidden;" @click="openDetails">
+  <v-card style="overflow: hidden; " @click="openDetails">
     <div class="d-flex flex-no-wrap" style="min-width: 0;">
-
       <v-img
           v-if="product.category?.imageUrl"
           height="100"

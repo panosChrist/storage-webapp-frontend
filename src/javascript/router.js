@@ -8,6 +8,7 @@ import ThemeSelectionComponent from "../components/ThemeSelectionComponent.vue";
 import ProfileDetailsComponent from "../components/ProfileDetailsComponent.vue";
 import PlanBillingComponent from "../components/PlanBillingComponent.vue";
 import NotificationSettingsComponent from "../components/NotificationSettingsComponent.vue";
+import HouseholdSettingsComponent from "../components/HouseholdSettingsComponent.vue";
 import LoginComponent from "../components/LoginComponent.vue";
 
 const routes = [
@@ -46,6 +47,11 @@ const routes = [
         name: 'profile-details',
         meta: { requiresAuth: true },
         component: ProfileDetailsComponent },
+    {
+        path: '/settings/household',
+        name: 'household-settings',
+        meta: { requiresAuth: true },
+        component: HouseholdSettingsComponent },
     {
         path: '/settings/billing',
         name: 'plan-billing',

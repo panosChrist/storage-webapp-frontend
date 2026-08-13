@@ -72,9 +72,13 @@ export const itemService = {
         }
     },
 
-    async addItemByBarcode(barcode) {
+    async addItemByBarcode(barcode, locationId) {
         try {
-            const response = await apiClient.get('/api/item/', { params: { barcode } });
+            const params = { barcode };
+            if (locationId) {
+                params.locationId = locationId;
+            }
+            const response = await apiClient.post('/api/item/scan', null, { params });
             return response.data;
         } catch (error) {
             console.error('Error adding item by barcode:', error);
@@ -84,7 +88,7 @@ export const itemService = {
 
     async checkIfItemExists(barcode) {
         try {
-            const response = await apiClient.get('/api/item/exists/' + barcode);
+            const response = await apiClient.get('/api/item/check/' + barcode);
             return response.data;
         } catch (error) {
             console.error('Error checking if item exists:', error);
@@ -102,9 +106,13 @@ export const itemService = {
       }
     },
 
-    async reduceItemByBarcode(barcode) {
+    async reduceItemByBarcode(barcode, locationId) {
         try {
-            const response = await apiClient.get('/api/item/reduce/' + barcode);
+            const params = {};
+            if (locationId) {
+                params.locationId = locationId;
+            }
+            const response = await apiClient.post('/api/item/reduce/' + barcode, null, { params });
             return response.data;
         } catch (error) {
             console.error('Error reducing item by barcode:', error);
@@ -119,6 +127,60 @@ export const itemService = {
             return response.data;
         } catch (error) {
             console.log(error);
+            throw error;
+        }
+    },
+    async getUserProfile() {
+        try {
+            const response = await apiClient.get('/api/user/profile');
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching user profile:', error);
+            throw error;
+        }
+    },
+    async updateUserProfile(profileData) {
+        try {
+            const response = await apiClient.put('/api/user/profile', profileData);
+            return response.data;
+        } catch (error) {
+            console.error('Error updating user profile:', error);
+            throw error;
+        }
+    },
+    async getMyHousehold() {
+        try {
+            const response = await apiClient.get('/api/household/my-household');
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching household:', error);
+            throw error;
+        }
+    },
+    async joinHousehold(inviteCode) {
+        try {
+            const response = await apiClient.post('/api/household/join', null, { params: { inviteCode } });
+            return response.data;
+        } catch (error) {
+            console.error('Error joining household:', error);
+            throw error;
+        }
+    },
+    async updateHouseholdName(name) {
+        try {
+            const response = await apiClient.put('/api/household/my-household', { name });
+            return response.data;
+        } catch (error) {
+            console.error('Error updating household name:', error);
+            throw error;
+        }
+    },
+    async removeHouseholdMember(targetUserId) {
+        try {
+            const response = await apiClient.delete(`/api/household/members/${targetUserId}`);
+            return response.data;
+        } catch (error) {
+            console.error('Error removing household member:', error);
             throw error;
         }
     },

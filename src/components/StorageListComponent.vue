@@ -101,18 +101,18 @@ export default {
   },
   async mounted() {
     try {
-      this.storageList = await itemService.getAllItems();
+      const [items, locations] = await Promise.all([
+        itemService.getAllItems(),
+        itemService.getAllLocations()
+      ]);
+      this.storageList = items || [];
+      this.locationList = locations || [];
     } catch (error) {
-      console.error("Failed to load initial items", error);
+      console.error("Failed to load initial storage data", error);
     } finally {
       this.isLoading = false;
     }
-    await this.startItemStream();
-    try {
-      this.locationList = await itemService.getAllLocations();
-    } catch (error) {
-      console.error('Failed to load storage data:', error.message);
-    }
+    this.startItemStream();
   },
   beforeUnmount() {
     this.debouncedSave.cancel();
@@ -243,15 +243,11 @@ export default {
 
         </v-card>
 
-        <v-row density="comfortable">
+        <v-row density="compact">
           <v-col
-            v-for="item in storageList"
-            :key="item.id"
-            cols="12"
-            sm="6"
-            md="4"
-            lg="3"
-          >
+              v-for="item in storageList"
+              :key="item.id"
+              cols="12">
             <ItemCard
                 :item="item"
                 @update-quantity="updateQuantity"

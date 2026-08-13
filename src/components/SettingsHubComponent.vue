@@ -4,6 +4,7 @@ import {
   mdiAccountCircle,
   mdiPencil,
   mdiAccountOutline,
+  mdiHomeGroup,
   mdiCreditCardOutline,
   mdiBellOutline,
   mdiPalette,
@@ -37,6 +38,7 @@ export default {
         mdiAccountCircle,
         mdiPencil,
         mdiAccountOutline,
+        mdiHomeGroup,
         mdiCreditCardOutline,
         mdiBellOutline,
         mdiPalette,
@@ -80,6 +82,12 @@ export default {
       if (routeKey === 'profile-details' || routeKey === 'profile') {
         if (this.$router) {
           this.$router.push('/settings/profile');
+          return;
+        }
+      }
+      if (routeKey === 'household-settings' || routeKey === 'household') {
+        if (this.$router) {
+          this.$router.push('/settings/household');
           return;
         }
       }
@@ -156,7 +164,7 @@ export default {
     />
 
     <!-- Sharp Top Profile Banner Card (rounded="0") -->
-    <v-card class="pa-6 mb-8 elevation-1" color="surface" rounded="0">
+    <v-card class="pa-6 mb-8 " color="surface" >
       <div class="d-flex flex-column flex-md-row align-center justify-space-between text-center text-md-left gap-4">
         
         <div class="d-flex flex-column flex-md-row align-center gap-4">
@@ -221,10 +229,9 @@ export default {
 
     <!-- Desktop 3-Column / Mobile Stacked Sharp Cards Grid (rounded="0") -->
     <v-row class="gy-6" align="stretch">
-      
       <!-- Card 1: Account Settings -->
       <v-col cols="12" md="4" class="d-flex flex-column">
-        <v-card class="elevation-1 fill-height d-flex flex-column" color="surface" rounded="0">
+        <v-card class="fill-height d-flex flex-column" color="surface" >
           <div class="pa-4 pb-2 border-bottom-subtle">
             <div class="text-subtitle-2 font-weight-bold text-teal-darken-4 text-uppercase tracking-wider">
               Account Settings
@@ -246,6 +253,26 @@ export default {
               </v-list-item-title>
               <v-list-item-subtitle class="text-caption text-grey-medium-emphasis">
                 Manage info & credentials
+              </v-list-item-subtitle>
+
+              <template v-slot:append>
+                <v-icon color="grey-medium-emphasis" size="18" :icon="icons.mdiChevronRight"></v-icon>
+              </template>
+            </v-list-item>
+
+            <!-- Household & Family Sharing -->
+            <v-list-item class="py-3 px-3 hover-item" rounded="0" @click="onNavigate('household-settings')">
+              <template v-slot:prepend>
+                <v-avatar color="#F2F4F4" size="40" class="mr-3" rounded="0">
+                  <v-icon color="#00483C" size="20" :icon="icons.mdiHomeGroup"></v-icon>
+                </v-avatar>
+              </template>
+
+              <v-list-item-title class="text-body-2 font-weight-bold">
+                Household & Family Sharing
+              </v-list-item-title>
+              <v-list-item-subtitle class="text-caption text-grey-medium-emphasis">
+                Invite family, members & permissions
               </v-list-item-subtitle>
 
               <template v-slot:append>
@@ -281,7 +308,7 @@ export default {
 
       <!-- Card 2: App Preferences -->
       <v-col cols="12" md="4" class="d-flex flex-column">
-        <v-card class="elevation-1 fill-height d-flex flex-column" color="surface" rounded="0">
+        <v-card class="fill-height d-flex flex-column" color="surface" >
           <div class="pa-4 pb-2 border-bottom-subtle">
             <div class="text-subtitle-2 font-weight-bold text-teal-darken-4 text-uppercase tracking-wider">
               App Preferences
@@ -341,7 +368,7 @@ export default {
 
       <!-- Card 3: Support & Feedback -->
       <v-col cols="12" md="4" class="d-flex flex-column">
-        <v-card class="elevation-1 fill-height d-flex flex-column" color="surface" rounded="0">
+        <v-card class="fill-height d-flex flex-column" color="surface" >
           <div class="pa-4 pb-2 border-bottom-subtle">
             <div class="text-subtitle-2 font-weight-bold text-teal-darken-4 text-uppercase tracking-wider">
               Support & Feedback
@@ -412,7 +439,7 @@ export default {
 
     <!-- Avatar Selection Dialog Modal (rounded="0") -->
     <v-dialog v-model="avatarDialogOpen" max-width="480">
-      <v-card class="pa-4" rounded="0">
+      <v-card class="pa-4" >
         <div class="d-flex justify-space-between align-center mb-4">
           <div class="text-h6 font-weight-bold">
             Choose Profile Avatar
