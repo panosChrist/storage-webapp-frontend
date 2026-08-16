@@ -108,7 +108,8 @@ export default {
   <!-- Content (only renders when item exists) -->
   <v-container
       v-else-if="item"
-      style="height: calc(100vh - 104px); overflow-y: auto; background-color: #F5F5F5; ">
+      style="height: calc(100vh - 140px); overflow-y: auto; background-color: #F5F5F5;"
+      class="pb-16">
     
     <!-- Top Back Navigation -->
     <div class="d-flex align-center mb-4 pt-2">
@@ -194,7 +195,6 @@ export default {
           <v-icon :icon="icons.mdiShieldAlert" style="margin-bottom: 4px" class="mr-1"></v-icon>
           Product Specifications
         </v-card-title>
-        <v-card-subtitle class="text-start text-uppercase pr-4">NON-FOOD</v-card-subtitle>
       </div>
 
       <v-card-text>

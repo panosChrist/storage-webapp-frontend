@@ -1,4 +1,3 @@
-<!-- src/components/SettingsHubComponent.vue -->
 <script>
 import {
   mdiAccountCircle,
@@ -17,6 +16,7 @@ import {
   mdiClose,
   mdiCheck
 } from '@mdi/js';
+import { itemService } from '../javascript/api.js';
 
 export default {
   name: 'SettingsHubComponent',
@@ -24,7 +24,7 @@ export default {
     user: {
       type: Object,
       default: () => ({
-        name: 'Alexander Vance',
+        name: '',
         role: 'Estate Manager',
         status: 'Pro Status Active',
         plan: 'ARCHITECT PRO',
@@ -51,6 +51,9 @@ export default {
         mdiClose,
         mdiCheck
       },
+      profileName: '',
+      profileEmail: '',
+      profileAvatar: '',
       themeMode: localStorage.getItem('app_theme')
         ? (localStorage.getItem('app_theme').charAt(0).toUpperCase() + localStorage.getItem('app_theme').slice(1))
         : 'System',
@@ -68,6 +71,32 @@ export default {
         'https://api.dicebear.com/7.x/bottts/svg?seed=Robot'
       ]
     };
+  },
+  computed: {
+    displayName() {
+      if (this.profileName) return this.profileName;
+      if (this.user && this.user.name && this.user.name !== 'Alexander Vance') return this.user.name;
+      if (this.profileEmail) return this.profileEmail;
+      return 'User Profile';
+    },
+    displaySub() {
+      return this.profileEmail || this.user?.role || 'Active Member';
+    },
+    displayAvatar() {
+      return this.profileAvatar || this.user?.avatarUrl || '';
+    }
+  },
+  async mounted() {
+    try {
+      const profile = await itemService.getUserProfile();
+      if (profile) {
+        this.profileName = profile.fullName || '';
+        this.profileEmail = profile.displayEmail || profile.email || '';
+        this.profileAvatar = profile.avatarUrl || '';
+      }
+    } catch (e) {
+      console.warn('Failed to load user profile in SettingsHubComponent', e);
+    }
   },
   emits: ['navigate', 'sign-out', 'update-avatar'],
   methods: {
@@ -171,7 +200,7 @@ export default {
           <!-- Avatar Wrapper with Pencil Edit Badge -->
           <div class="position-relative">
             <v-avatar size="96" color="#1F6052" class="elevation-3" rounded="0">
-              <v-img v-if="user.avatarUrl" :src="user.avatarUrl" cover></v-img>
+              <v-img v-if="displayAvatar" :src="displayAvatar" cover></v-img>
               <v-icon v-else color="white" size="60" :icon="icons.mdiAccountCircle"></v-icon>
             </v-avatar>
             
@@ -193,10 +222,10 @@ export default {
           <!-- User Name & Role -->
           <div>
             <h2 class="text-h5 font-weight-bold text-grey-darken-4 mb-1">
-              {{ user.name }}
+              {{ displayName }}
             </h2>
             <div class="text-subtitle-2 text-grey-medium-emphasis">
-              {{ user.role }}
+              {{ displaySub }}
             </div>
           </div>
         </div>

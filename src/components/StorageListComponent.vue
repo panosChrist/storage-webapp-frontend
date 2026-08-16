@@ -58,15 +58,17 @@ export default {
     },
     updateQuantity(itemId, newValue) {
       const foodItem = this.storageList.find(i => i.id === itemId);
+      if (!foodItem) return;
+
       const numericValue = Number(newValue);
+      if (isNaN(numericValue) || numericValue === null || numericValue === undefined || numericValue < 1) {
+        return;
+      }
 
-      if (foodItem && !isNaN(numericValue)) {
-        const oldValue = foodItem.quantity;
+      const oldValue = foodItem.quantity;
+      if (numericValue !== Number(oldValue)) {
         foodItem.quantity = numericValue;
-
-        if (numericValue !== Number(oldValue)) {
-          this.debouncedSave(itemId, numericValue);
-        }
+        this.debouncedSave(itemId, numericValue);
       }
     },
     async syncWithBackend(itemId, value) {
@@ -78,7 +80,12 @@ export default {
 
       itemService.streamAllItemsAxios(
           (newData) => {
-            this.storageList = newData;
+            if (!newData) return;
+            // Preserve active client-side skeletons if not yet in DB newData
+            const activeSkeletons = this.storageList.filter(
+              i => i.isSkeleton && !newData.some(n => (n.product?.barcode || n.foodItem?.barcode) === i.product?.barcode)
+            );
+            this.storageList = [...activeSkeletons, ...newData];
           },
           (error) => {
             console.error("Stream failed:", error);
@@ -97,9 +104,48 @@ export default {
       } catch (error) {
         console.error('Failed to delete item:', error);
       }
+    },
+    onOptimisticAdd(event) {
+      const skeleton = event.detail;
+      if (!skeleton) return;
+
+      const barcode = skeleton.product?.barcode;
+      if (barcode) {
+        const existingItem = this.storageList.find(i => {
+          const b = i.product?.barcode || i.foodItem?.barcode;
+          return b === barcode;
+        });
+
+        if (existingItem) {
+          // Deduplicate: increment quantity on existing card instead of unshifting duplicate
+          existingItem.quantity = (Number(existingItem.quantity) || 0) + 1;
+          return;
+        }
+      }
+
+      this.storageList.unshift(skeleton);
+    },
+    onOptimisticComplete(event) {
+      const { skeletonId, newItem } = event.detail || {};
+      const index = this.storageList.findIndex(i => i.id === skeletonId);
+      if (index !== -1) {
+        if (newItem && newItem.id) {
+          this.storageList.splice(index, 1, newItem);
+        } else {
+          this.storageList.splice(index, 1);
+        }
+      }
+    },
+    onOptimisticError(event) {
+      const { skeletonId } = event.detail || {};
+      this.storageList = this.storageList.filter(i => i.id !== skeletonId);
     }
   },
   async mounted() {
+    window.addEventListener('optimistic-item-add', this.onOptimisticAdd);
+    window.addEventListener('optimistic-item-complete', this.onOptimisticComplete);
+    window.addEventListener('optimistic-item-error', this.onOptimisticError);
+
     try {
       const [items, locations] = await Promise.all([
         itemService.getAllItems(),
@@ -115,6 +161,10 @@ export default {
     this.startItemStream();
   },
   beforeUnmount() {
+    window.removeEventListener('optimistic-item-add', this.onOptimisticAdd);
+    window.removeEventListener('optimistic-item-complete', this.onOptimisticComplete);
+    window.removeEventListener('optimistic-item-error', this.onOptimisticError);
+
     this.debouncedSave.cancel();
 
     if (this.streamController) {

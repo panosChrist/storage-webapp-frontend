@@ -1,6 +1,6 @@
 <script>
-import {mdiInformationOutline, mdiBarcode, mdiImageOffOutline, mdiTrashCanOutline } from "@mdi/js";
-import {itemService} from "../javascript/api.js";
+import { mdiInformationOutline, mdiBarcode, mdiImageOffOutline, mdiTrashCanOutline, mdiRefresh, mdiAlertCircle } from "@mdi/js";
+import { itemService } from "../javascript/api.js";
 
 export default {
   name: "ItemCard",
@@ -13,11 +13,14 @@ export default {
   data() {
     return {
       isDeleteDialogOpen: false,
+      isRetrying: false,
       icons: {
         mdiInformationOutline,
         mdiBarcode,
         mdiImageOffOutline,
-        mdiTrashCanOutline
+        mdiTrashCanOutline,
+        mdiRefresh,
+        mdiAlertCircle
       }
     }
   },
@@ -36,18 +39,37 @@ export default {
     confirmDeleteItem() {
       this.$emit('item-deleted', this.item.id);
       this.isDeleteDialogOpen = false;
+    },
+    async retrySearch() {
+      if (!this.product?.barcode) return;
+      this.isRetrying = true;
+      try {
+        await itemService.addItemByBarcode(this.product.barcode, this.item.location?.id);
+      } catch (e) {
+        console.error('Retry search failed:', e);
+      } finally {
+        this.isRetrying = false;
+      }
     }
   },
   computed: {
     product() {
       return this.item?.product || this.item?.foodItem || {};
     },
+    isSearching() {
+      return this.item?.isSkeleton || this.product?.status === 'SEARCHING';
+    },
+    isFailed() {
+      return this.product?.status === 'FAILED';
+    },
     localQuantity: {
       get() {
-        return this.item.quantity;
+        return this.item.quantity || 1;
       },
       set(val) {
-        this.updateQuantity(this.item.id, val);
+        if (val !== null && val !== undefined && !isNaN(val) && Number(val) >= 1) {
+          this.updateQuantity(this.item.id, Number(val));
+        }
       }
     }
   }
@@ -55,7 +77,76 @@ export default {
 </script>
 
 <template>
-  <v-card style="overflow: hidden; " @click="openDetails">
+  <!-- Database-backed & Optimistic Status Skeleton Card -->
+  <v-card v-if="isSearching" style="overflow: hidden;" class="pa-3 bg-grey-lighten-4 elevation-1 border-sm border-teal-lighten-3 mb-2" rounded="lg">
+    <div class="d-flex align-center">
+      <v-skeleton-loader
+        type="image"
+        width="90"
+        height="90"
+        class="rounded-lg mr-3 flex-shrink-0"
+      ></v-skeleton-loader>
+      <div class="flex-grow-1 text-start" style="min-width: 0;">
+        <div class="d-flex align-center mb-1">
+          <v-progress-circular indeterminate size="18" width="2" color="#00483C" class="mr-2"></v-progress-circular>
+          <span class="text-subtitle-2 font-weight-bold text-teal-darken-4 text-truncate">
+            Searching product info...
+          </span>
+        </div>
+        <div class="d-flex align-center justify-space-between mt-2 flex-wrap gap-2">
+          <span class="px-2 py-1 rounded-pill text-caption font-weight-bold text-white" style="background-color: #00483C;">
+            Barcode: {{ product.barcode }}
+          </span>
+          <v-chip size="small" color="#00483C" variant="flat" class="font-weight-bold text-white">
+            Qty: {{ item.quantity }}
+          </v-chip>
+        </div>
+      </div>
+    </div>
+  </v-card>
+
+  <!-- Failed Status Error Card -->
+  <v-card v-else-if="isFailed" style="overflow: hidden;" class="pa-3 bg-red-lighten-5 border-sm border-red-lighten-3 mb-2" rounded="lg">
+    <div class="d-flex align-center justify-space-between text-start flex-wrap gap-2">
+      <div class="d-flex align-center">
+        <v-icon :icon="icons.mdiAlertCircle" color="error" size="32" class="mr-3"></v-icon>
+        <div>
+          <div class="text-subtitle-2 font-weight-bold text-error">
+            Product Search Failed (3 Tries)
+          </div>
+          <div class="text-caption text-grey-darken-2">
+            Barcode: <strong>{{ product.barcode }}</strong> &bull; Qty: {{ item.quantity }}
+          </div>
+        </div>
+      </div>
+      <div class="d-flex align-center gap-2">
+        <v-btn
+          color="error"
+          size="small"
+          variant="flat"
+          class="text-white font-weight-bold text-none"
+          :loading="isRetrying"
+          @click="retrySearch"
+        >
+          <v-icon start :icon="icons.mdiRefresh" size="16"></v-icon>
+          Retry Search
+        </v-btn>
+        <v-btn
+          icon
+          size="small"
+          variant="text"
+          color="grey-darken-1"
+          @click.stop="deleteItem"
+          title="Delete Item"
+        >
+          <v-icon :icon="icons.mdiTrashCanOutline"></v-icon>
+        </v-btn>
+      </div>
+    </div>
+  </v-card>
+
+  <!-- Normal Item Card -->
+  <v-card v-else style="overflow: hidden; " @click="openDetails">
     <div class="d-flex flex-no-wrap" style="min-width: 0;">
       <v-img
           v-if="product.category?.imageUrl"
@@ -104,7 +195,7 @@ export default {
               controlVariant="split"
               variant="solo"
               flat
-              :min="0"
+              :min="1"
               density="compact"
               hide-details
               rounded="lg"

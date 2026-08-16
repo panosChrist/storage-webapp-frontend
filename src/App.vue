@@ -75,8 +75,8 @@ export default {
     try {
       const profile = await itemService.getUserProfile();
       if (profile) {
-        this.user.name = profile.fullName || this.user.name;
-        this.user.email = profile.displayEmail || profile.email || this.user.email;
+        this.user.name = profile.fullName || profile.displayEmail || profile.email || 'User';
+        this.user.email = profile.displayEmail || profile.email || '';
         if (profile.avatarUrl) {
           this.user.avatarUrl = profile.avatarUrl;
         }
@@ -87,16 +87,31 @@ export default {
   },
   methods: {
     async onBarcodeAdd(barcode, locationId) {
+      // Immediately close the camera scanner dialog
+      this.cameraDialogOnAddOpen = false;
+
+      const skeletonId = 'skeleton-' + barcode + '-' + Date.now();
+      const skeletonItem = {
+        id: skeletonId,
+        isSkeleton: true,
+        quantity: 1,
+        product: {
+          barcode: barcode,
+          productName: 'Creating product item...',
+          brand: ''
+        }
+      };
+
+      // Dispatch optimistic skeleton item to StorageListComponent
+      window.dispatchEvent(new CustomEvent('optimistic-item-add', { detail: skeletonItem }));
+
       try {
         const targetLocationId = locationId || (this.locationList.length > 0 ? this.locationList[0].id : null);
-        await itemService.addItemByBarcode(barcode, targetLocationId);
-        // No need to manually update a list here!
-        // The backend will broadcast the updated inventory via SSE,
-        // and StorageListComponent will automatically re-render.
+        const newItem = await itemService.addItemByBarcode(barcode, targetLocationId);
+        window.dispatchEvent(new CustomEvent('optimistic-item-complete', { detail: { skeletonId, newItem } }));
       } catch (error) {
         console.error('Scanning error:', error);
-      } finally {
-        this.cameraDialogOnAddOpen = false;
+        window.dispatchEvent(new CustomEvent('optimistic-item-error', { detail: { skeletonId } }));
       }
     },
 
