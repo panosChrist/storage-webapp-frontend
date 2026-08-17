@@ -30,6 +30,12 @@ export default {
       // Just emit to the parent - don't process here
       this.$emit('update-quantity', itemId, newValue);
     },
+    onQuantityChange(newVal) {
+      const num = Number(newVal);
+      if (!isNaN(num) && num >= 0 && num !== Number(this.item?.quantity)) {
+        this.updateQuantity(this.item.id, num);
+      }
+    },
     openDetails() {
       this.$router.push({name: 'item-detail', params: {id: this.item.id}});
     },
@@ -61,16 +67,6 @@ export default {
     },
     isFailed() {
       return this.product?.status === 'FAILED';
-    },
-    localQuantity: {
-      get() {
-        return this.item.quantity || 1;
-      },
-      set(val) {
-        if (val !== null && val !== undefined && !isNaN(val) && Number(val) >= 1) {
-          this.updateQuantity(this.item.id, Number(val));
-        }
-      }
     }
   }
 }
@@ -78,7 +74,7 @@ export default {
 
 <template>
   <!-- Database-backed & Optimistic Status Skeleton Card -->
-  <v-card v-if="isSearching" style="overflow: hidden;" class="pa-3 bg-grey-lighten-4 elevation-1 border-sm border-teal-lighten-3 mb-2" rounded="lg">
+  <v-card v-if="isSearching" style="overflow: hidden;" class="pa-3 bg-grey-lighten-4 elevation-1 border-sm border-teal-lighten-3" rounded="lg">
     <div class="d-flex align-center">
       <v-skeleton-loader
         type="image"
@@ -148,26 +144,23 @@ export default {
   <!-- Normal Item Card -->
   <v-card v-else style="overflow: hidden; " @click="openDetails">
     <div class="d-flex flex-no-wrap" style="min-width: 0;">
-      <v-img
-          v-if="product.category?.imageUrl"
-          height="100"
-          width="100"
-          min-width="100"
-          max-width="250"
-          class="rounded-lg flex-shrink-0 ma-3 bg-grey-lighten-4"
-          cover
-          :src="product.category.imageUrl">
-      </v-img>
-      <v-img
-          v-else
-          height="100"
-          width="100"
-          min-width="100"
-          max-width="250"
-          class="rounded-lg flex-shrink-0 ma-3 bg-grey-lighten-4"
-          cover
-          src="https://api.minio.christakis.dev/storage-images/image-not-found.png">
-      </v-img>
+      <div class="position-relative ma-3 flex-shrink-0" style="width: 100px; height: 100px;">
+        <v-img
+            height="100"
+            width="100"
+            class="rounded-lg bg-grey-lighten-4"
+            cover
+            :src="product.imageUrl || product.category?.imageUrl || 'https://api.minio.christakis.dev/storage-images/image-not-found.png'">
+        </v-img>
+        <span
+          v-if="product.imageSource === 'AI_GENERATED'"
+          class="position-absolute px-1 rounded-sm text-caption font-weight-bold"
+          style="bottom: 4px; right: 4px; background: rgba(0,0,0,0.65); color: #fff; font-size: 10px; line-height: 14px;"
+          title="EU AI Act Disclosure: AI-Generated Synthetic Visual"
+        >
+          AI
+        </span>
+      </div>
 
 
       <div class="flex-grow-1 py-2 pr-2" style="min-width: 0; overflow: hidden;">
@@ -190,18 +183,22 @@ export default {
           <v-icon :icon="icons.mdiBarcode" size="small"></v-icon> {{ product.barcode }}
         </v-card-subtitle>
 
-        <div class="d-flex flex-wrap align-center justify-space-between mt-3 ga-2">
+        <div class="d-flex flex-wrap align-center justify-space-between mt-3 ga-2" @click.stop>
           <v-number-input
               controlVariant="split"
               variant="solo"
               flat
-              :min="1"
+              :min="0"
               density="compact"
               hide-details
               rounded="lg"
               bg-color="grey-lighten-4"
               style="max-width: 140px;"
-              v-model="localQuantity">
+              :model-value="item.quantity"
+              @click.stop
+              @mousedown.stop
+              @touchstart.stop
+              @update:model-value="onQuantityChange">
           </v-number-input>
           <v-chip size="small" :color="item.quantity === 0 ? 'error' : 'success'">{{item.quantity === 0 ? 'Out of stock' : item.quantity + ' left'}}</v-chip>
         </div>

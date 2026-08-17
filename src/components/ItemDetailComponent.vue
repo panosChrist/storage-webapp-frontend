@@ -132,14 +132,25 @@ export default {
         flat
         style="margin-bottom: 32px;">
 
-      <v-img
-          v-if="product.category?.imageUrl"
-          :src="product.category.imageUrl">
-      </v-img>
-      <v-img
-          v-else
-          src="https://api.minio.christakis.dev/storage-images/image-not-found.png">
-      </v-img>
+      <div class="position-relative">
+        <v-img
+            height="260"
+            cover
+            class="bg-grey-lighten-4"
+            :src="product.imageUrl || product.category?.imageUrl || 'https://api.minio.christakis.dev/storage-images/image-not-found.png'">
+        </v-img>
+        <v-chip
+          v-if="product.imageSource === 'AI_GENERATED'"
+          size="x-small"
+          color="black"
+          variant="flat"
+          class="position-absolute ma-2 text-caption font-weight-bold"
+          style="bottom: 0; right: 0; opacity: 0.85;"
+          title="EU AI Act Article 50: Synthetic illustrative visual representation"
+        >
+          ✨ AI Generated • Illustrative
+        </v-chip>
+      </div>
       <v-card-title
           class="text-wrap text-start">
         {{ product.brand ? product.brand + ' - ' : '' }}{{ product.productName || 'Scanning product...' }}

@@ -55,6 +55,12 @@ export default {
       checkResultTimeout: null,
       showCheckResult: false,
       userMenu: false,
+      snackbar: {
+        show: false,
+        text: '',
+        color: 'success',
+        timeout: 4000
+      },
       user: {
         name: 'Alexander Wright',
         email: 'alexander.wright@email.com',
@@ -118,10 +124,37 @@ export default {
     async onBarcodeDelete(barcode, locationId) {
       try {
         const targetLocationId = locationId || (this.locationList.length > 0 ? this.locationList[0].id : null);
-        await itemService.reduceItemByBarcode(barcode, targetLocationId);
-
+        const result = await itemService.reduceItemByBarcode(barcode, targetLocationId);
+        if (result && result.success) {
+          this.snackbar = {
+            show: true,
+            text: result.message || 'Item quantity reduced.',
+            color: 'success',
+            timeout: 4000
+          };
+        } else if (result && result.otherLocationName) {
+          this.snackbar = {
+            show: true,
+            text: result.message || `Item not found in this location. Found in ${result.otherLocationName} (${result.otherLocationQuantity} left).`,
+            color: 'warning',
+            timeout: 6000
+          };
+        } else {
+          this.snackbar = {
+            show: true,
+            text: result?.message || `Item with barcode ${barcode} is not in your storage.`,
+            color: 'error',
+            timeout: 5000
+          };
+        }
       } catch (error) {
         console.error('Delete error:', error);
+        this.snackbar = {
+          show: true,
+          text: error.response?.data?.message || 'Failed to process barcode reduction.',
+          color: 'error',
+          timeout: 5000
+        };
       } finally {
         this.cameraDialogOnDelete = false;
       }
@@ -463,6 +496,22 @@ export default {
         :locations="locationList"
         @detect="onBarcodeDelete"
     />
+
+    <v-snackbar
+        v-model="snackbar.show"
+        :color="snackbar.color"
+        :timeout="snackbar.timeout"
+        location="top"
+        rounded="pill"
+        elevation="6"
+    >
+      <div class="d-flex align-center font-weight-medium">
+        {{ snackbar.text }}
+      </div>
+      <template v-slot:actions>
+        <v-btn variant="text" size="small" @click="snackbar.show = false">Close</v-btn>
+      </template>
+    </v-snackbar>
 
     <v-footer app class="d-flex align-center justify-center" style="height: 40px; min-height: 40px;">Christakis</v-footer>
   </v-app>
