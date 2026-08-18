@@ -29,6 +29,9 @@ export default {
         categories: [],
       },
       searchQuery: '',
+      isSearching: false,
+      searchResults: null,
+      searchDebounceTimeout: null,
       streamController: null,
       isLoading: true,
       locationList: [],
@@ -39,25 +42,20 @@ export default {
         { title: 'Sort by Quantity (Low-High)', value: 'qty_asc' },
       ],
       selectedFilter: null,
-      clearFilters() {
-        this.searchQuery = '';
-        this.filters = {
-          sortBy: 'newest',
-          stockStatus: [],
-          categories: []
-        };
-      }
     };
   },
   computed: {
     filteredStorageList() {
-      let list = [...this.storageList];
+      // If active Meilisearch results exist for non-empty query, use them!
+      let list = (this.searchQuery && this.searchQuery.trim() && this.searchResults !== null)
+        ? [...this.searchResults]
+        : [...this.storageList];
 
-      // 1. Search Query Filter
-      if (this.searchQuery && this.searchQuery.trim()) {
+      // Fallback local query filter if Meilisearch results not yet loaded or on error
+      if (this.searchQuery && this.searchQuery.trim() && this.searchResults === null) {
         const q = this.searchQuery.trim().toLowerCase();
         list = list.filter(item => {
-          const product = item.product || item.foodItem || {};
+          const product = item.product || item.foodItem || item || {};
           const name = (product.productName || '').toLowerCase();
           const brand = (product.brand || '').toLowerCase();
           const barcode = (product.barcode || '').toLowerCase();
@@ -106,8 +104,8 @@ export default {
         list.sort((a, b) => (Number(b.quantity) || 0) - (Number(a.quantity) || 0));
       } else if (this.filters.sortBy === 'qty_asc') {
         list.sort((a, b) => (Number(a.quantity) || 0) - (Number(b.quantity) || 0));
-      } else {
-        // Default 'newest': Active Skeletons first, then sort stably by createdDate DESC, then ID
+      } else if (!this.searchQuery || !this.searchQuery.trim()) {
+        // Default 'newest' (only when not searching, preserving Meilisearch's relevance ranking):
         list.sort((a, b) => {
           if (a.isSkeleton && !b.isSkeleton) return -1;
           if (!a.isSkeleton && b.isSkeleton) return 1;
@@ -122,6 +120,84 @@ export default {
     }
   },
   methods: {
+    clearFilters() {
+      this.clearSearch();
+      this.filters = {
+        sortBy: 'newest',
+        stockStatus: [],
+        categories: []
+      };
+    },
+    clearSearch() {
+      this.searchQuery = '';
+      this.searchResults = null;
+      this.isSearching = false;
+      if (this.searchDebounceTimeout) clearTimeout(this.searchDebounceTimeout);
+    },
+    onSearchInput(val) {
+      this.searchQuery = val || '';
+      if (this.searchDebounceTimeout) clearTimeout(this.searchDebounceTimeout);
+
+      if (!this.searchQuery || !this.searchQuery.trim()) {
+        this.searchResults = null;
+        this.isSearching = false;
+        return;
+      }
+
+      this.isSearching = true;
+      this.searchDebounceTimeout = setTimeout(() => {
+        this.performMeilisearch();
+      }, 200);
+    },
+    async performMeilisearch() {
+      const q = (this.searchQuery || '').trim();
+      if (!q) {
+        this.searchResults = null;
+        this.isSearching = false;
+        return;
+      }
+
+      this.isSearching = true;
+      try {
+        const response = await itemService.searchItems(q, {
+          sortBy: this.filters.sortBy,
+          inStockOnly: this.filters.stockStatus.includes('in_stock') && !this.filters.stockStatus.includes('out_of_stock')
+        });
+
+        if (response && response.hits) {
+          const idToLocalMap = new Map(this.storageList.map(item => [item.id, item]));
+          this.searchResults = response.hits.map(hit => {
+            const local = idToLocalMap.get(hit.id);
+            if (local) return local;
+            return {
+              id: hit.id,
+              userId: hit.userId,
+              quantity: hit.quantity,
+              createdDate: hit.createdDate,
+              lastModifiedDate: hit.lastModifiedDate,
+              product: {
+                productName: hit.productName,
+                brand: hit.brand,
+                barcode: hit.barcode,
+                status: hit.status,
+                imageUrl: hit.imageUrl,
+                imageSource: hit.imageSource,
+                category: { categoryName: hit.categoryName }
+              },
+              location: {
+                id: hit.locationId,
+                name: hit.locationName
+              }
+            };
+          });
+        }
+      } catch (err) {
+        console.warn('Meilisearch query failed, falling back to local list filtering', err);
+        this.searchResults = null;
+      } finally {
+        this.isSearching = false;
+      }
+    },
     mdiMagnify() {
       return mdiMagnify
     },
@@ -287,13 +363,16 @@ export default {
 
           <div class="d-inline-flex w-100 justify-center ">
             <v-text-field
-              v-model="searchQuery"
+              :model-value="searchQuery"
+              @update:model-value="onSearchInput"
+              :loading="isSearching"
               density="compact"
               :prepend-inner-icon="icons.mdiMagnify"
               variant="solo"
               style="margin-right: 16px"
               clearable
-              label="Search">
+              @click:clear="clearSearch"
+              label="Search products, brands, ingredients, barcodes...">
             </v-text-field>
 
             <v-btn :icon="icons.mdiFilterVariant" @click="filterSheet = true" density="comfortable"></v-btn>

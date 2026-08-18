@@ -130,6 +130,21 @@ export const itemService = {
             throw error;
         }
     },
+    async searchItems(query, options = {}) {
+        try {
+            const params = { q: query || '' };
+            if (options.locationId) params.locationId = options.locationId;
+            if (options.inStockOnly) params.inStockOnly = options.inStockOnly;
+            if (options.sortBy) params.sortBy = options.sortBy;
+            if (options.limit) params.limit = options.limit;
+            if (options.offset) params.offset = options.offset;
+            const response = await apiClient.get('/api/item/search', { params });
+            return response.data;
+        } catch (error) {
+            console.error('Error searching items via Meilisearch:', error);
+            throw error;
+        }
+    },
     async getUserProfile() {
         try {
             const response = await apiClient.get('/api/user/profile');
